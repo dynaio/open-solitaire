@@ -8,12 +8,15 @@ pub struct Engine {
     pub state: GameState,
     pub rules: RuleSet,
     history: Vec<GameState>,
+    /// Pre-computed winning move sequence (remaining). Populated by `ensure_solution`.
+    /// If `None`, `hint()` falls back to the greedy heuristic.
+    pub solution: Option<Vec<Move>>,
 }
 
 impl Engine {
     pub fn new(rules: RuleSet, seed: u64) -> Self {
         let state = GameState::new(&rules, seed);
-        Engine { state, rules, history: Vec::new() }
+        Engine { state, rules, history: Vec::new(), solution: None }
     }
 
     pub fn can(&self, m: &Move) -> bool { is_legal(&self.state, &self.rules, m) }
@@ -27,12 +30,22 @@ impl Engine {
             self.history.remove(0);
         }
 
+        // Track solution path: matching move = pop next; diverging move = clear.
+        let tracked = m.clone();
         match m {
             Move::Draw => self.do_draw(),
             Move::Recycle => self.do_recycle(),
             Move::FlipTableau(t) => self.do_flip(t),
             Move::Move { from, from_idx, to } => self.do_move(from, from_idx, to),
             Move::AutoFoundation(from) => self.do_auto_foundation(from),
+        }
+
+        if let Some(sol) = &mut self.solution {
+            if sol.first() == Some(&tracked) {
+                sol.remove(0);
+            } else {
+                self.solution = None;
+            }
         }
         true
     }
@@ -211,7 +224,7 @@ mod tests {
 
 impl Engine {
     /// Suggest the best next move (greedy: foundation > tableau reveal > waste > draw).
-    pub fn hint(&self) -> Option<Move> {
+    pub fn greedy_hint(&self) -> Option<Move> {
         // 1. Any top card that can go straight to a foundation
         for t in 0..self.state.tableau.len() {
             let pile = &self.state.tableau[t];
@@ -324,5 +337,48 @@ impl Engine {
             }
         }
         count
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────
+// Solution-aware hints
+// ─────────────────────────────────────────────────────────────────
+
+impl Engine {
+    /// Pre-compute a winning move path from the current state.
+    /// No-op if a solution already exists.
+    pub fn ensure_solution(&mut self, max_states: usize) {
+        if self.solution.as_ref().map(|s| !s.is_empty()).unwrap_or(false) {
+            return;
+        }
+        self.solution = crate::core::solver::solve_from_state(&self.state, &self.rules, max_states);
+    }
+
+    /// Suggest the best next move.
+    /// If a solution path is loaded, return the next move in it (guaranteed winning).
+    /// Otherwise fall back to the greedy heuristic.
+    pub fn hint(&self) -> Option<Move> {
+        if let Some(sol) = &self.solution {
+            if let Some(m) = sol.first() {
+                return Some(m.clone());
+            }
+        }
+        self.greedy_hint()
+    }
+
+    /// Apply a move without pushing undo history or mutating the solution path.
+    /// Intended for the solver DFS. Returns false if the move was illegal.
+    pub fn apply_no_history(&mut self, m: &Move) -> bool {
+        if !self.can(m) {
+            return false;
+        }
+        match m {
+            Move::Draw => self.do_draw(),
+            Move::Recycle => self.do_recycle(),
+            Move::FlipTableau(t) => self.do_flip(*t),
+            Move::Move { from, from_idx, to } => self.do_move(*from, *from_idx, *to),
+            Move::AutoFoundation(from) => self.do_auto_foundation(*from),
+        }
+        true
     }
 }

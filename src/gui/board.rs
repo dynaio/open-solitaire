@@ -51,8 +51,19 @@ pub fn draw_board(
     hover: &Option<(PileRef, u8)>,
     drag: &Option<DragState>,
 ) {
-    let theme = Theme::modern_felt();
-    theme.table_bg.set_source(cr);
+    let theme = Theme::deep_emerald();
+    // Radial gradient: warm emerald center, darker edges
+    let cx = w / 2.0;
+    let cy = h / 2.0;
+    let r = (w.max(h)) * 0.7;
+    let grad = cairo::RadialGradient::new(cx, cy, 0.0, cx, cy, r);
+    grad.add_color_stop_rgb(0.0, theme.table_bg_center.0, theme.table_bg_center.1, theme.table_bg_center.2);
+    grad.add_color_stop_rgb(0.7, theme.table_bg.0, theme.table_bg.1, theme.table_bg.2);
+    grad.add_color_stop_rgb(1.0,
+        theme.table_bg.0 * 0.70,
+        theme.table_bg.1 * 0.70,
+        theme.table_bg.2 * 0.70);
+    cr.set_source(&grad).ok();
     cr.paint().ok();
 
     let (scale, off_x, off_y) = compute_layout(engine, w, h);

@@ -2,7 +2,7 @@ use crate::core::rules::{BuildOrder, EmptyPile, MoveGroup, Redeals, RuleSet};
 use crate::core::state::{GameState, PileRef, PlacedCard};
 use serde::{Deserialize, Serialize};
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum Move {
     Draw,

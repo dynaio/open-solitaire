@@ -9,7 +9,6 @@ use gtk::prelude::*;
 use openpatience::core::engine::Engine;
 use openpatience::core::moves::Move;
 use openpatience::core::rules::RuleSet;
-use openpatience::core::solver::find_solvable_seed;
 use openpatience::core::state::PileRef;
 
 use super::board::{base_w, compute_layout, draw_board, hit_test, DragState, Selection};
@@ -28,8 +27,53 @@ fn new_engine(mode_idx: usize, difficulty: Difficulty) -> Engine {
     if mode_idx < 2 {
         apply_difficulty(&mut rule, difficulty);
     }
-    let seed = find_solvable_seed(&rule, 1, 200);
-    Engine::new(rule, seed)
+    // Instant startup: seed 1, no solving yet. `ensure_solution` is called on
+    // first hint click (cached afterwards), and also warmed up in background
+    // by `spawn_background_solve` right after the window is shown.
+    Engine::new(rule, 1)
+}
+
+/// Solve seed 1 in a background thread; attach the result to the Engine when done.
+/// The window is fully interactive while this runs — user won't notice.
+fn spawn_background_solve(engine: Rc<std::cell::RefCell<Engine>>) {
+    use gtk::glib;
+    use std::sync::Mutex;
+    use std::sync::mpsc;
+
+    let state_snapshot = engine.borrow().state.clone();
+    let rules_snapshot = engine.borrow().rules.clone();
+
+    // std::sync::mpsc works on any glib version (no `MainContext::channel` needed).
+    let (tx, rx) = mpsc::channel::<Option<Vec<Move>>>();
+    let rx = Mutex::new(rx);
+
+    std::thread::spawn(move || {
+        let sol = openpatience::core::solver::solve_from_state(
+            &state_snapshot,
+            &rules_snapshot,
+            200_000,
+        );
+        // Ignore send error — receiver only drops on app exit.
+        tx.send(sol).ok();
+    });
+
+    // Poll the channel from the GTK main loop every 100 ms.
+    glib::timeout_add_local(std::time::Duration::from_millis(100), move || {
+        match rx.lock().unwrap().try_recv() {
+            Ok(sol) => {
+                if let Some(s) = sol {
+                    let mut e = engine.borrow_mut();
+                    // Only adopt if the user hasn't moved yet.
+                    if e.solution.is_none() && e.state.waste.is_empty() && e.state.score == 0 {
+                        e.solution = Some(s);
+                    }
+                }
+                glib::ControlFlow::Break
+            }
+            Err(mpsc::TryRecvError::Empty) => glib::ControlFlow::Continue,
+            Err(mpsc::TryRecvError::Disconnected) => glib::ControlFlow::Break,
+        }
+    });
 }
 
 pub fn run() -> glib::ExitCode {
@@ -195,28 +239,68 @@ fn build_ui(app: &gtk::Application) {
                         _ => Some(cur),
                     };
                 }
-            } else if distance <= 8.0 {
-                // Click without starting a drag (e.g., empty slot) — try select/deselect
-                if let Some((pile, idx)) = target {
-                    let cur = Selection { pile, from_idx: idx };
-                    let current = *selection.borrow();
-                    let next = match current {
-                        Some(s) if s.pile == cur.pile && s.from_idx == cur.from_idx => None,
-                        None => Some(cur),
-                        Some(s) => {
-                            let m = Move::Move { from: s.pile, from_idx: s.from_idx, to: pile };
-                            if engine.borrow_mut().apply(m) { None } else { Some(cur) }
-                        }
-                    };
-                    *selection.borrow_mut() = next;
-                } else {
+            } else if drag.borrow().is_none() {
+                // Drag gesture claimed the sequence but no drag state was set
+                // (invalid target). Deselect silently — GestureClick was denied,
+                // so this is the only handler for the sequence.
+                *selection.borrow_mut() = None;
+            }
+            area.queue_draw();
+        }
+    });
+    area.add_controller(drag_gesture);
+
+    // ---------- Click handler ----------
+    // Fires ONLY for pure clicks (no drag). If a drag happens, GestureDrag claims
+    // the sequence and GestureClick's `released` is denied by GTK — no double-handling.
+    let click = gtk::GestureClick::new();
+    click.connect_released({
+        let engine = engine.clone();
+        let drag = drag.clone();
+        let selection = selection.clone();
+        let dims = dims.clone();
+        let area = area.clone();
+        move |_g, _n, x, y| {
+            if drag.borrow().is_some() { return; }
+
+            let (w, h) = dims.get();
+            let (scale, off_x, off_y) = compute_layout(&engine.borrow(), w, h);
+            let bw = base_w(&engine.borrow());
+            let hit = { let e = engine.borrow(); hit_test(&e.state, bw, scale, off_x, off_y, x, y) };
+
+            match hit {
+                Some((PileRef::Stock, _)) => {
+                    let mut e = engine.borrow_mut();
+                    if !e.state.stock.is_empty() { e.apply(Move::Draw); }
+                    else { e.apply(Move::Recycle); }
+                    *selection.borrow_mut() = None;
+                }
+                Some((PileRef::Tableau(t), idx)) => {
+                    // Flip face-down top card on click
+                    let e = engine.borrow();
+                    let pile = &e.state.tableau[t as usize];
+                    let is_top = (idx as usize) + 1 == pile.len();
+                    let is_face_down = pile.get(idx as usize).map(|p| !p.face_up).unwrap_or(false);
+                    drop(e);
+
+                    if is_top && is_face_down {
+                        engine.borrow_mut().apply(Move::FlipTableau(t));
+                        *selection.borrow_mut() = None;
+                    } else {
+                        handle_select(&engine, &selection, PileRef::Tableau(t), idx);
+                    }
+                }
+                Some((pile, idx)) => {
+                    handle_select(&engine, &selection, pile, idx);
+                }
+                None => {
                     *selection.borrow_mut() = None;
                 }
             }
             area.queue_draw();
         }
     });
-    area.add_controller(drag_gesture);
+    area.add_controller(click);
 
     // Keyboard
     let key = gtk::EventControllerKey::new();
@@ -229,6 +313,7 @@ fn build_ui(app: &gtk::Application) {
             let handled = match name.as_str() {
                 "u" | "U" => { e.undo(); true }
                 "h" | "H" => {
+                    e.ensure_solution(50_000);
                     if let Some(m) = e.hint() { e.apply(m); }
                     true
                 }
@@ -264,6 +349,7 @@ fn build_ui(app: &gtk::Application) {
         move |_| {
             *engine.borrow_mut() = new_engine(mode_idx.get(), difficulty.get());
             area.queue_draw();
+            spawn_background_solve(engine.clone());
         }
     });
     header.pack_start(&new_btn);
@@ -274,6 +360,7 @@ fn build_ui(app: &gtk::Application) {
         let engine = engine.clone(); let area = area.clone();
         move |_| {
             let mut e = engine.borrow_mut();
+            e.ensure_solution(50_000);
             if let Some(m) = e.hint() { e.apply(m); }
             drop(e);
             area.queue_draw();
@@ -296,9 +383,14 @@ fn build_ui(app: &gtk::Application) {
             mode_idx.set(idx);
             *engine.borrow_mut() = new_engine(idx, difficulty.get());
             area.queue_draw();
+            spawn_background_solve(engine.clone());
         }
     });
     header.pack_start(&mode_drop);
+
+    let about_btn = gtk::Button::builder()
+        .icon_name("help-about-symbolic").tooltip_text("About Open Solitaire").build();
+    header.pack_end(&about_btn);
 
     let auto_btn = gtk::Button::builder()
         .icon_name("go-up-symbolic").tooltip_text("Auto-foundation (F)").build();
@@ -319,6 +411,12 @@ fn build_ui(app: &gtk::Application) {
         .default_height(800)
         .build();
 
+    // About button
+    {
+        let win = window.clone();
+        about_btn.connect_clicked(move |_| show_about_dialog(&win));
+    }
+
     // Settings button: needs a window reference
     {
         let engine = engine.clone();
@@ -333,10 +431,10 @@ fn build_ui(app: &gtk::Application) {
             let area2 = area.clone();
             let mi = mode_idx.clone();
             show_settings_dialog(&win, &rule, diff, move |new_diff| {
-                // Apply difficulty + restart with solvable deal
                 let _ = &mi;
                 *eng.borrow_mut() = new_engine(mi.get(), new_diff);
                 area2.queue_draw();
+                spawn_background_solve(eng.clone());
             });
         });
     }
@@ -344,4 +442,99 @@ fn build_ui(app: &gtk::Application) {
     window.set_titlebar(Some(&header));
     window.set_child(Some(&area));
     window.present();
+
+    // Kick off background solving — window is already interactive.
+    spawn_background_solve(engine.clone());
+}
+
+
+fn show_about_dialog(parent: &gtk::ApplicationWindow) {
+    let about = gtk::Window::builder()
+        .title("About Open Solitaire")
+        .transient_for(parent)
+        .modal(true)
+        .default_width(440)
+        .default_height(480)
+        .resizable(false)
+        .build();
+
+    let vbox = gtk::Box::new(gtk::Orientation::Vertical, 6);
+    vbox.set_margin_top(28);
+    vbox.set_margin_bottom(24);
+    vbox.set_margin_start(32);
+    vbox.set_margin_end(32);
+
+    let title = gtk::Label::new(None);
+    title.set_markup("<span size='xx-large' weight='bold'>Open Solitaire</span>");
+    vbox.append(&title);
+
+    let subtitle = gtk::Label::new(Some("Beautiful, offline-first Solitaire for Linux"));
+    subtitle.add_css_class("dim-label");
+    vbox.append(&subtitle);
+
+    vbox.append(&gtk::Separator::new(gtk::Orientation::Horizontal));
+
+    let version = gtk::Label::new(Some(&format!("Version {}", env!("CARGO_PKG_VERSION"))));
+    vbox.append(&version);
+
+    vbox.append(&gtk::Separator::new(gtk::Orientation::Horizontal));
+
+    let dev_label = gtk::Label::new(None);
+    dev_label.set_markup("<span weight='bold'>Developer</span>");
+    vbox.append(&dev_label);
+
+    let dev_name = gtk::Label::new(None);
+    dev_name.set_markup("<span size='large'>Abdelkader Berassil</span>");
+    vbox.append(&dev_name);
+
+    let dev_role = gtk::Label::new(Some("Computer Science Engineer · Algeria"));
+    dev_role.add_css_class("dim-label");
+    vbox.append(&dev_role);
+
+    vbox.append(&gtk::Separator::new(gtk::Orientation::Horizontal));
+
+    let lic_label = gtk::Label::new(None);
+    lic_label.set_markup("<span weight='bold'>License</span>");
+    vbox.append(&lic_label);
+
+    let lic_text = gtk::Label::new(Some("GNU General Public License v3.0 or later"));
+    vbox.append(&lic_text);
+
+    let built = gtk::Label::new(Some("Built with Rust · GTK4 · Cairo"));
+    built.add_css_class("dim-label");
+    built.set_margin_top(12);
+    vbox.append(&built);
+
+    let close = gtk::Button::with_label("Close");
+    close.add_css_class("suggested-action");
+    close.set_halign(gtk::Align::Center);
+    close.set_margin_top(16);
+    vbox.append(&close);
+
+    about.set_child(Some(&vbox));
+
+    let about_c = about.clone();
+    close.connect_clicked(move |_| about_c.close());
+
+    about.present();
+}
+
+
+fn handle_select(
+    engine: &Rc<std::cell::RefCell<Engine>>,
+    selection: &Rc<std::cell::RefCell<Option<Selection>>>,
+    pile: PileRef,
+    idx: u8,
+) {
+    let cur = Selection { pile, from_idx: idx };
+    let current = *selection.borrow();
+    let next = match current {
+        Some(s) if s.pile == cur.pile && s.from_idx == cur.from_idx => None,
+        None => Some(cur),
+        Some(s) => {
+            let m = Move::Move { from: s.pile, from_idx: s.from_idx, to: pile };
+            if engine.borrow_mut().apply(m) { None } else { Some(cur) }
+        }
+    };
+    *selection.borrow_mut() = next;
 }

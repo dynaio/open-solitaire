@@ -11,10 +11,27 @@ impl Rgb {
     pub fn set_source_alpha(self, cr: &cairo::Context, a: f64) {
         cr.set_source_rgba(self.0, self.1, self.2, a);
     }
+    #[allow(dead_code)]
+    pub fn lighten(self, amt: f64) -> Self {
+        Rgb(
+            (self.0 + amt).min(1.0),
+            (self.1 + amt).min(1.0),
+            (self.2 + amt).min(1.0),
+        )
+    }
+    #[allow(dead_code)]
+    pub fn darken(self, amt: f64) -> Self {
+        Rgb(
+            (self.0 - amt).max(0.0),
+            (self.1 - amt).max(0.0),
+            (self.2 - amt).max(0.0),
+        )
+    }
 }
 
 pub struct Theme {
     pub table_bg: Rgb,
+    pub table_bg_center: Rgb,   // for radial gradient
     pub card_face_bg: Rgb,
     pub card_face_border: Rgb,
     pub card_back_color: Rgb,
@@ -23,21 +40,23 @@ pub struct Theme {
     pub suit_black: Rgb,
     pub empty_slot: Rgb,
     pub highlight: Rgb,
+    pub gold: Rgb,
 }
 
 impl Theme {
-    pub fn modern_felt() -> Self {
+    pub fn deep_emerald() -> Self {
         Theme {
-            table_bg: Rgb(0.051, 0.298, 0.180),
-            card_face_bg: Rgb(0.985, 0.985, 0.985),
-            card_face_border: Rgb(0.820, 0.820, 0.830),
-            card_back_color: Rgb(0.118, 0.227, 0.373),
-            card_back_pattern: Rgb(0.612, 0.706, 0.831),
-            // Real-world playing-card red and black
-            suit_red: Rgb(0.860, 0.115, 0.130),
-            suit_black: Rgb(0.080, 0.080, 0.100),
-            empty_slot: Rgb(1.0, 1.0, 1.0),
-            highlight: Rgb(0.298, 0.686, 0.314),
+            table_bg:         Rgb(0.055, 0.260, 0.150),
+            table_bg_center:  Rgb(0.090, 0.340, 0.200),
+            card_face_bg:     Rgb(0.995, 0.993, 0.985),
+            card_face_border: Rgb(0.700, 0.700, 0.720),
+            card_back_color:  Rgb(0.085, 0.140, 0.290),
+            card_back_pattern: Rgb(0.855, 0.730, 0.360),
+            suit_red:         Rgb(0.870, 0.095, 0.130),
+            suit_black:       Rgb(0.055, 0.055, 0.075),
+            empty_slot:       Rgb(1.0, 1.0, 1.0),
+            highlight:        Rgb(0.980, 0.820, 0.280),
+            gold:             Rgb(0.900, 0.755, 0.360),
         }
     }
 

@@ -13,11 +13,13 @@ pub enum Difficulty {
 }
 
 impl Difficulty {
+    #[allow(dead_code)]
     pub fn label(self) -> &'static str {
         match self { Difficulty::Easy => "Easy", Difficulty::Normal => "Normal", Difficulty::Hard => "Hard" }
     }
 }
 
+#[allow(dead_code)]
 pub struct GameConfig {
     pub difficulty: Rc<Cell<Difficulty>>,
 }

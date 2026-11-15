@@ -5,7 +5,7 @@ use super::theme::{Rgb, Theme};
 
 pub const CARD_W: f64 = 100.0;
 pub const CARD_H: f64 = 140.0;
-pub const CARD_RADIUS: f64 = 8.0;
+pub const CARD_RADIUS: f64 = 9.0;
 
 // ─────────────────────────────────────────────────────────────────
 // Shape primitives
@@ -21,7 +21,6 @@ pub fn rounded_rect(cr: &cairo::Context, x: f64, y: f64, w: f64, h: f64, r: f64)
     cr.close_path();
 }
 
-/// Draw a filled suit shape centered at (cx, cy) with half-height `s`.
 pub fn draw_suit_shape(cr: &cairo::Context, suit: Suit, cx: f64, cy: f64, s: f64) {
     match suit {
         Suit::Hearts => draw_heart(cr, cx, cy, s),
@@ -35,26 +34,10 @@ pub fn draw_suit_shape(cr: &cairo::Context, suit: Suit, cx: f64, cy: f64, s: f64
 fn draw_heart(cr: &cairo::Context, cx: f64, cy: f64, s: f64) {
     let w = s * 0.95;
     cr.move_to(cx, cy + s);
-    cr.curve_to(
-        cx - w * 1.15, cy + s * 0.15,
-        cx - w * 1.05, cy - s * 0.85,
-        cx - w * 0.35, cy - s * 0.85,
-    );
-    cr.curve_to(
-        cx - w * 0.10, cy - s * 0.85,
-        cx, cy - s * 0.45,
-        cx, cy - s * 0.35,
-    );
-    cr.curve_to(
-        cx, cy - s * 0.45,
-        cx + w * 0.10, cy - s * 0.85,
-        cx + w * 0.35, cy - s * 0.85,
-    );
-    cr.curve_to(
-        cx + w * 1.05, cy - s * 0.85,
-        cx + w * 1.15, cy + s * 0.15,
-        cx, cy + s,
-    );
+    cr.curve_to(cx - w * 1.15, cy + s * 0.15, cx - w * 1.05, cy - s * 0.85, cx - w * 0.35, cy - s * 0.85);
+    cr.curve_to(cx - w * 0.10, cy - s * 0.85, cx, cy - s * 0.45, cx, cy - s * 0.35);
+    cr.curve_to(cx, cy - s * 0.45, cx + w * 0.10, cy - s * 0.85, cx + w * 0.35, cy - s * 0.85);
+    cr.curve_to(cx + w * 1.05, cy - s * 0.85, cx + w * 1.15, cy + s * 0.15, cx, cy + s);
     cr.close_path();
 }
 
@@ -69,30 +52,12 @@ fn draw_diamond(cr: &cairo::Context, cx: f64, cy: f64, s: f64) {
 
 fn draw_spade(cr: &cairo::Context, cx: f64, cy: f64, s: f64) {
     let w = s * 0.95;
-    // Body (upside-down heart)
     cr.move_to(cx, cy - s);
-    cr.curve_to(
-        cx + w * 1.15, cy - s * 0.15,
-        cx + w * 1.05, cy + s * 0.85,
-        cx + w * 0.35, cy + s * 0.85,
-    );
-    cr.curve_to(
-        cx + w * 0.10, cy + s * 0.85,
-        cx, cy + s * 0.45,
-        cx, cy + s * 0.35,
-    );
-    cr.curve_to(
-        cx, cy + s * 0.45,
-        cx - w * 0.10, cy + s * 0.85,
-        cx - w * 0.35, cy + s * 0.85,
-    );
-    cr.curve_to(
-        cx - w * 1.05, cy + s * 0.85,
-        cx - w * 1.15, cy - s * 0.15,
-        cx, cy - s,
-    );
+    cr.curve_to(cx + w * 1.15, cy - s * 0.15, cx + w * 1.05, cy + s * 0.85, cx + w * 0.35, cy + s * 0.85);
+    cr.curve_to(cx + w * 0.10, cy + s * 0.85, cx, cy + s * 0.45, cx, cy + s * 0.35);
+    cr.curve_to(cx, cy + s * 0.45, cx - w * 0.10, cy + s * 0.85, cx - w * 0.35, cy + s * 0.85);
+    cr.curve_to(cx - w * 1.05, cy + s * 0.85, cx - w * 1.15, cy - s * 0.15, cx, cy - s);
     cr.close_path();
-    // Stem
     cr.move_to(cx - s * 0.15, cy + s);
     cr.line_to(cx - s * 0.10, cy + s * 0.7);
     cr.line_to(cx + s * 0.10, cy + s * 0.7);
@@ -103,16 +68,12 @@ fn draw_spade(cr: &cairo::Context, cx: f64, cy: f64, s: f64) {
 fn draw_club(cr: &cairo::Context, cx: f64, cy: f64, s: f64) {
     let r = s * 0.36;
     let lobe = s * 0.42;
-    // Top circle
     cr.arc(cx, cy - lobe, r, 0.0, 2.0 * std::f64::consts::PI);
     cr.close_path();
-    // Left circle
     cr.arc(cx - r * 0.95, cy + lobe * 0.3, r, 0.0, 2.0 * std::f64::consts::PI);
     cr.close_path();
-    // Right circle
     cr.arc(cx + r * 0.95, cy + lobe * 0.3, r, 0.0, 2.0 * std::f64::consts::PI);
     cr.close_path();
-    // Stem
     cr.move_to(cx - s * 0.14, cy + s);
     cr.line_to(cx - s * 0.08, cy + s * 0.55);
     cr.line_to(cx + s * 0.08, cy + s * 0.55);
@@ -121,7 +82,7 @@ fn draw_club(cr: &cairo::Context, cx: f64, cy: f64, s: f64) {
 }
 
 // ─────────────────────────────────────────────────────────────────
-// Pip layouts
+// Pip layouts (slightly larger than before)
 // ─────────────────────────────────────────────────────────────────
 
 fn pip_positions(rank: Rank) -> Vec<(f64, f64)> {
@@ -130,17 +91,17 @@ fn pip_positions(rank: Rank) -> Vec<(f64, f64)> {
     let c = 0.50;
     let r = 0.70;
     match rank {
-        Two   => vec![(c, 0.22), (c, 0.78)],
-        Three => vec![(c, 0.22), (c, 0.50), (c, 0.78)],
-        Four  => vec![(l, 0.22), (r, 0.22), (l, 0.78), (r, 0.78)],
-        Five  => vec![(l, 0.22), (r, 0.22), (c, 0.50), (l, 0.78), (r, 0.78)],
-        Six   => vec![(l, 0.22), (r, 0.22), (l, 0.50), (r, 0.50), (l, 0.78), (r, 0.78)],
-        Seven => vec![(l, 0.22), (r, 0.22), (c, 0.36), (l, 0.50), (r, 0.50), (l, 0.78), (r, 0.78)],
-        Eight => vec![(l, 0.22), (r, 0.22), (c, 0.36), (l, 0.50), (r, 0.50), (c, 0.64), (l, 0.78), (r, 0.78)],
-        Nine  => vec![(l, 0.18), (r, 0.18), (l, 0.36), (r, 0.36), (c, 0.50),
-                      (l, 0.64), (r, 0.64), (l, 0.82), (r, 0.82)],
-        Ten   => vec![(l, 0.18), (r, 0.18), (c, 0.30), (l, 0.42), (r, 0.42),
-                      (l, 0.58), (r, 0.58), (c, 0.70), (l, 0.82), (r, 0.82)],
+        Two => vec![(c, 0.20), (c, 0.80)],
+        Three => vec![(c, 0.20), (c, 0.50), (c, 0.80)],
+        Four => vec![(l, 0.20), (r, 0.20), (l, 0.80), (r, 0.80)],
+        Five => vec![(l, 0.20), (r, 0.20), (c, 0.50), (l, 0.80), (r, 0.80)],
+        Six => vec![(l, 0.20), (r, 0.20), (l, 0.50), (r, 0.50), (l, 0.80), (r, 0.80)],
+        Seven => vec![(l, 0.20), (r, 0.20), (c, 0.35), (l, 0.50), (r, 0.50), (l, 0.80), (r, 0.80)],
+        Eight => vec![(l, 0.20), (r, 0.20), (c, 0.35), (l, 0.50), (r, 0.50), (c, 0.65), (l, 0.80), (r, 0.80)],
+        Nine => vec![(l, 0.16), (r, 0.16), (l, 0.34), (r, 0.34), (c, 0.50),
+                     (l, 0.66), (r, 0.66), (l, 0.84), (r, 0.84)],
+        Ten => vec![(l, 0.16), (r, 0.16), (c, 0.28), (l, 0.40), (r, 0.40),
+                    (l, 0.60), (r, 0.60), (c, 0.72), (l, 0.84), (r, 0.84)],
         _ => vec![],
     }
 }
@@ -154,12 +115,15 @@ pub fn draw_card_face(
     x: f64, y: f64, w: f64, h: f64,
     card: Card, theme: &Theme,
 ) {
-    // Shadow
-    rounded_rect(cr, x + 2.0, y + 3.0, w, h, CARD_RADIUS);
+    // Two-layer shadow for depth
+    rounded_rect(cr, x + 3.0, y + 4.0, w, h, CARD_RADIUS);
+    cr.set_source_rgba(0.0, 0.0, 0.0, 0.14);
+    cr.fill().ok();
+    rounded_rect(cr, x + 1.5, y + 2.0, w, h, CARD_RADIUS);
     cr.set_source_rgba(0.0, 0.0, 0.0, 0.22);
     cr.fill().ok();
 
-    // Face
+    // Face with slight inner gradient
     rounded_rect(cr, x, y, w, h, CARD_RADIUS);
     theme.card_face_bg.set_source(cr);
     cr.fill_preserve().ok();
@@ -169,11 +133,11 @@ pub fn draw_card_face(
 
     let sc = theme.suit_color(card.suit);
 
-    // --- Corner indices ---
+    // Corner indices (bigger, bolder)
     draw_corner_index(cr, x, y, w, h, card, sc, 1.0);
     draw_corner_index(cr, x, y, w, h, card, sc, -1.0);
 
-    // --- Center ---
+    // Center
     draw_center(cr, x, y, w, h, card, sc, theme);
 }
 
@@ -189,22 +153,20 @@ fn draw_corner_index(
         cr.translate(-x, -y);
     }
 
-    // Rank
+    // Bigger rank text
     sc.set_source(cr);
     cr.select_font_face("Noto Sans", cairo::FontSlant::Normal, cairo::FontWeight::Bold);
-    cr.set_font_size(w * 0.20);
+    cr.set_font_size(w * 0.235);
     let rank_str = card.rank.glyph();
     if let Ok(ext) = cr.text_extents(rank_str) {
-        cr.move_to(
-            x + w * 0.05 + (w * 0.18 - ext.width()) / 2.0 - ext.x_bearing(),
-            y + h * 0.13,
-        );
+        let cx = x + w * 0.14;
+        cr.move_to(cx - ext.width() / 2.0 - ext.x_bearing(), y + h * 0.155);
     }
     cr.show_text(rank_str).ok();
 
-    // Suit
+    // Suit under the rank
     let suit_size = w * 0.075;
-    draw_suit_shape(cr, card.suit, x + w * 0.14, y + h * 0.22 + suit_size, suit_size);
+    draw_suit_shape(cr, card.suit, x + w * 0.14, y + h * 0.255 + suit_size, suit_size);
     cr.restore().ok();
 }
 
@@ -216,15 +178,13 @@ fn draw_center(
     sc.set_source(cr);
     match card.rank {
         Rank::Ace => {
-            // Large centered suit
-            draw_suit_shape(cr, card.suit, x + w / 2.0, y + h / 2.0, w * 0.24);
+            draw_suit_shape(cr, card.suit, x + w / 2.0, y + h / 2.0, w * 0.26);
         }
         Rank::Jack | Rank::Queen | Rank::King => {
             draw_face_card(cr, x, y, w, h, card, sc, theme);
         }
         _ => {
-            // Pip layout
-            let pip_size = w * 0.075;
+            let pip_size = w * 0.080;
             for (px, py) in pip_positions(card.rank) {
                 draw_suit_shape(cr, card.suit, x + px * w, y + py * h, pip_size);
             }
@@ -237,26 +197,26 @@ fn draw_face_card(
     x: f64, y: f64, w: f64, h: f64,
     card: Card, sc: Rgb, theme: &Theme,
 ) {
-    // Decorative inner frame
-    let inset_x = w * 0.20;
-    let inset_y = h * 0.22;
-    let inner = (x + inset_x, y + inset_y, w - inset_x * 2.0, h - inset_y * 2.0);
+    // Inner frame
+    let ix = w * 0.22;
+    let iy = h * 0.24;
+    let (fx, fy, fw, fh) = (x + ix, y + iy, w - ix * 2.0, h - iy * 2.0);
 
-    // Fill inner rectangle with a very light tint
-    theme.card_face_border.set_source_alpha(cr, 0.35);
-    cr.rectangle(inner.0, inner.1, inner.2, inner.3);
+    // Soft fill
+    theme.card_face_border.set_source_alpha(cr, 0.30);
+    cr.rectangle(fx, fy, fw, fh);
     cr.fill().ok();
 
     // Border
-    sc.set_source_alpha(cr, 0.75);
-    cr.set_line_width(1.2);
-    cr.rectangle(inner.0, inner.1, inner.2, inner.3);
+    sc.set_source_alpha(cr, 0.80);
+    cr.set_line_width(1.3);
+    cr.rectangle(fx, fy, fw, fh);
     cr.stroke().ok();
 
-    // Letter in the middle (no extra suits — corners already show the suit)
+    // Big letter
     sc.set_source(cr);
     cr.select_font_face("Noto Serif", cairo::FontSlant::Normal, cairo::FontWeight::Bold);
-    cr.set_font_size(w * 0.38);
+    cr.set_font_size(w * 0.40);
     let letter = card.rank.glyph();
     if let Ok(ext) = cr.text_extents(letter) {
         cr.move_to(
@@ -268,7 +228,7 @@ fn draw_face_card(
 }
 
 // ─────────────────────────────────────────────────────────────────
-// Back and slot
+// Back, slots, highlights
 // ─────────────────────────────────────────────────────────────────
 
 pub fn draw_card_back(
@@ -276,7 +236,10 @@ pub fn draw_card_back(
     x: f64, y: f64, w: f64, h: f64,
     theme: &Theme,
 ) {
-    rounded_rect(cr, x + 2.0, y + 3.0, w, h, CARD_RADIUS);
+    rounded_rect(cr, x + 3.0, y + 4.0, w, h, CARD_RADIUS);
+    cr.set_source_rgba(0.0, 0.0, 0.0, 0.14);
+    cr.fill().ok();
+    rounded_rect(cr, x + 1.5, y + 2.0, w, h, CARD_RADIUS);
     cr.set_source_rgba(0.0, 0.0, 0.0, 0.22);
     cr.fill().ok();
 
@@ -287,22 +250,29 @@ pub fn draw_card_back(
     theme.card_face_border.set_source(cr);
     cr.stroke().ok();
 
-    let inset = w * 0.08;
+    let inset = w * 0.07;
     rounded_rect(cr, x + inset, y + inset, w - 2.0 * inset, h - 2.0 * inset, CARD_RADIUS * 0.7);
     cr.set_line_width(1.5);
-    theme.card_back_pattern.set_source_alpha(cr, 0.55);
+    theme.card_back_pattern.set_source_alpha(cr, 0.60);
     cr.stroke().ok();
 
-    // Center diamond emblem (like real cards)
+    // Inner second border (nested)
+    let inset2 = w * 0.13;
+    rounded_rect(cr, x + inset2, y + inset2, w - 2.0 * inset2, h - 2.0 * inset2, CARD_RADIUS * 0.5);
+    cr.set_line_width(0.8);
+    theme.card_back_pattern.set_source_alpha(cr, 0.35);
+    cr.stroke().ok();
+
+    // Center diamond
     let cx = x + w / 2.0;
     let cy = y + h / 2.0;
-    let dr = w * 0.14;
+    let dr = w * 0.16;
     cr.move_to(cx, cy - dr);
-    cr.line_to(cx + dr, cy);
+    cr.line_to(cx + dr * 0.68, cy);
     cr.line_to(cx, cy + dr);
-    cr.line_to(cx - dr, cy);
+    cr.line_to(cx - dr * 0.68, cy);
     cr.close_path();
-    theme.card_back_pattern.set_source_alpha(cr, 0.40);
+    theme.card_back_pattern.set_source_alpha(cr, 0.55);
     cr.fill().ok();
 }
 
@@ -312,10 +282,10 @@ pub fn draw_empty_slot(
     theme: &Theme,
 ) {
     rounded_rect(cr, x, y, w, h, CARD_RADIUS);
-    theme.empty_slot.set_source_alpha(cr, 0.10);
+    theme.empty_slot.set_source_alpha(cr, 0.08);
     cr.fill_preserve().ok();
     cr.set_line_width(1.5);
-    cr.set_dash(&[4.0, 4.0], 0.0);
+    cr.set_dash(&[5.0, 4.0], 0.0);
     theme.empty_slot.set_source_alpha(cr, 0.42);
     cr.stroke().ok();
     cr.set_dash(&[], 0.0);
@@ -326,8 +296,14 @@ pub fn draw_selected_highlight(
     x: f64, y: f64, w: f64, h: f64,
     theme: &Theme,
 ) {
+    // Glow
+    rounded_rect(cr, x - 4.0, y - 4.0, w + 8.0, h + 8.0, CARD_RADIUS + 4.0);
+    theme.gold.set_source_alpha(cr, 0.25);
+    cr.set_line_width(6.0);
+    cr.stroke().ok();
+
     rounded_rect(cr, x - 2.0, y - 2.0, w + 4.0, h + 4.0, CARD_RADIUS + 2.0);
-    cr.set_line_width(3.0);
+    cr.set_line_width(2.5);
     theme.highlight.set_source(cr);
     cr.stroke().ok();
 }
@@ -339,6 +315,6 @@ pub fn draw_hover_highlight(
 ) {
     rounded_rect(cr, x - 1.0, y - 1.0, w + 2.0, h + 2.0, CARD_RADIUS + 1.0);
     cr.set_line_width(2.0);
-    theme.highlight.set_source_alpha(cr, 0.5);
+    theme.gold.set_source_alpha(cr, 0.55);
     cr.stroke().ok();
 }
