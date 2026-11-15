@@ -92,6 +92,11 @@ fn build_ui(app: &gtk::Application) {
     let hover: Rc<std::cell::RefCell<Option<(PileRef, u8)>>> = Rc::new(std::cell::RefCell::new(None));
     let drag: Rc<std::cell::RefCell<Option<DragState>>> = Rc::new(std::cell::RefCell::new(None));
     let dims = Rc::new(Cell::new((1000.0f64, 800.0f64)));
+    // Debounce: prevents GestureClick + GestureDrag (or double-fired Button::clicked)
+    // from both firing for one physical click. 50 ms is invisible to the user
+    // but catches both-handlers-fire-in-same-tick.
+    let last_action: Rc<Cell<std::time::Instant>> =
+        Rc::new(Cell::new(std::time::Instant::now()));
 
     let area = gtk::DrawingArea::new();
     area.set_hexpand(true);
@@ -150,13 +155,9 @@ fn build_ui(app: &gtk::Application) {
             let bw = base_w(&engine.borrow());
             let hit = { let e = engine.borrow(); hit_test(&e.state, bw, scale, off_x, off_y, start_x, start_y) };
             if let Some((pile, idx)) = hit {
-                // Stock click: draw immediately, no drag
-                if let PileRef::Stock = pile {
-                    let mut e = engine.borrow_mut();
-                    if !e.state.stock.is_empty() { e.apply(Move::Draw); }
-                    else { e.apply(Move::Recycle); }
-                    drop(e);
-                    area.queue_draw();
+                // Stock / Foundation are not drag sources — GestureClick handles them.
+                // (If we also drew here, we'd get two draws per stock click.)
+                if matches!(pile, PileRef::Stock | PileRef::Foundation(_)) {
                     return;
                 }
                 // Only start drag from movable face-up sources
@@ -204,7 +205,15 @@ fn build_ui(app: &gtk::Application) {
         let selection = selection.clone();
         let dims = dims.clone();
         let area = area.clone();
+        let last_action = last_action.clone();
         move |_g, offset_x, offset_y| {
+            // Debounce: GestureClick may have fired for the same click
+            let now = std::time::Instant::now();
+            if now.duration_since(last_action.get()).as_millis() < 50 {
+                *drag.borrow_mut() = None;
+                return;
+            }
+            last_action.set(now);
             let (w, h) = dims.get();
             let (scale, off_x, off_y) = compute_layout(&engine.borrow(), w, h);
             let bw = base_w(&engine.borrow());
@@ -260,8 +269,15 @@ fn build_ui(app: &gtk::Application) {
         let selection = selection.clone();
         let dims = dims.clone();
         let area = area.clone();
+        let last_action = last_action.clone();
         move |_g, _n, x, y| {
             if drag.borrow().is_some() { return; }
+            // Debounce: GestureDrag may have fired for the same click
+            let now = std::time::Instant::now();
+            if now.duration_since(last_action.get()).as_millis() < 50 {
+                return;
+            }
+            last_action.set(now);
 
             let (w, h) = dims.get();
             let (scale, off_x, off_y) = compute_layout(&engine.borrow(), w, h);
@@ -358,7 +374,13 @@ fn build_ui(app: &gtk::Application) {
         .icon_name("dialog-question-symbolic").tooltip_text("Hint (H)").build();
     hint_btn.connect_clicked({
         let engine = engine.clone(); let area = area.clone();
+        let last_action = last_action.clone();
         move |_| {
+            let now = std::time::Instant::now();
+            if now.duration_since(last_action.get()).as_millis() < 50 {
+                return;
+            }
+            last_action.set(now);
             let mut e = engine.borrow_mut();
             e.ensure_solution(50_000);
             if let Some(m) = e.hint() { e.apply(m); }
