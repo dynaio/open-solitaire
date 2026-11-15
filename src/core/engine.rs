@@ -204,3 +204,125 @@ mod tests {
         }
     }
 }
+
+// ─────────────────────────────────────────────────────────────────
+// Hint + Auto
+// ─────────────────────────────────────────────────────────────────
+
+impl Engine {
+    /// Suggest the best next move (greedy: foundation > tableau reveal > waste > draw).
+    pub fn hint(&self) -> Option<Move> {
+        // 1. Any top card that can go straight to a foundation
+        for t in 0..self.state.tableau.len() {
+            let pile = &self.state.tableau[t];
+            if pile.is_empty() || !pile.last().unwrap().face_up { continue; }
+            let m = Move::AutoFoundation(PileRef::Tableau(t as u8));
+            if self.can(&m) { return Some(m); }
+        }
+        if !self.state.waste.is_empty() {
+            let m = Move::AutoFoundation(PileRef::Waste);
+            if self.can(&m) { return Some(m); }
+        }
+
+        // 2. Any tableau → tableau move that reveals a face-down card
+        for t in 0..self.state.tableau.len() {
+            let pile = &self.state.tableau[t];
+            if pile.len() < 2 { continue; }
+            for i in 0..pile.len() - 1 {
+                if !pile[i].face_up || !pile[i + 1].face_up { continue; }
+                for dst in 0..self.state.tableau.len() {
+                    if dst == t { continue; }
+                    let m = Move::Move {
+                        from: PileRef::Tableau(t as u8),
+                        from_idx: i as u8,
+                        to: PileRef::Tableau(dst as u8),
+                    };
+                    if self.can(&m) { return Some(m); }
+                }
+            }
+        }
+
+        // 3. Waste → tableau
+        if !self.state.waste.is_empty() {
+            for dst in 0..self.state.tableau.len() {
+                let m = Move::Move {
+                    from: PileRef::Waste,
+                    from_idx: (self.state.waste.len() - 1) as u8,
+                    to: PileRef::Tableau(dst as u8),
+                };
+                if self.can(&m) { return Some(m); }
+            }
+        }
+
+        // 4. Free cell → tableau (FreeCell mode)
+        for f in 0..self.state.free_cells.len() {
+            if self.state.free_cells[f].is_none() { continue; }
+            for dst in 0..self.state.tableau.len() {
+                let m = Move::Move {
+                    from: PileRef::FreeCell(f as u8),
+                    from_idx: 0,
+                    to: PileRef::Tableau(dst as u8),
+                };
+                if self.can(&m) { return Some(m); }
+            }
+        }
+
+        // 5. Any other valid tableau → tableau
+        for t in 0..self.state.tableau.len() {
+            let pile = &self.state.tableau[t];
+            for i in 0..pile.len() {
+                if !pile[i].face_up { continue; }
+                for dst in 0..self.state.tableau.len() {
+                    if dst == t { continue; }
+                    let m = Move::Move {
+                        from: PileRef::Tableau(t as u8),
+                        from_idx: i as u8,
+                        to: PileRef::Tableau(dst as u8),
+                    };
+                    if self.can(&m) { return Some(m); }
+                }
+            }
+        }
+
+        // 6. Draw from stock
+        if !self.state.stock.is_empty() {
+            return Some(Move::Draw);
+        }
+
+        // 7. Recycle
+        if !self.state.waste.is_empty() {
+            let m = Move::Recycle;
+            if self.can(&m) { return Some(m); }
+        }
+
+        None
+    }
+
+    /// Move all possible cards to foundations (repeat until nothing moves).
+    pub fn auto_foundation_all(&mut self) -> u32 {
+        let mut count = 0;
+        let mut moved = true;
+        while moved {
+            moved = false;
+            for t in 0..self.state.tableau.len() {
+                if self.state.tableau[t].is_empty()
+                    || !self.state.tableau[t].last().unwrap().face_up { continue; }
+                let m = Move::AutoFoundation(PileRef::Tableau(t as u8));
+                if self.apply(m) { count += 1; moved = true; break; }
+            }
+            if !self.state.waste.is_empty() {
+                let m = Move::AutoFoundation(PileRef::Waste);
+                if self.apply(m) { count += 1; moved = true; }
+            }
+            if !moved {
+                for f in 0..self.state.free_cells.len() {
+                    if self.state.free_cells[f].is_some() {
+                        let m = Move::AutoFoundation(PileRef::FreeCell(f as u8));
+                        if self.apply(m) { count += 1; moved = true; break; }
+                    }
+                }
+            }
+        }
+        count
+    }
+}

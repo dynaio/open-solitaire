@@ -253,10 +253,10 @@ fn draw_face_card(
     cr.rectangle(inner.0, inner.1, inner.2, inner.3);
     cr.stroke().ok();
 
-    // Letter in the middle
+    // Letter in the middle (no extra suits — corners already show the suit)
     sc.set_source(cr);
     cr.select_font_face("Noto Serif", cairo::FontSlant::Normal, cairo::FontWeight::Bold);
-    cr.set_font_size(w * 0.32);
+    cr.set_font_size(w * 0.38);
     let letter = card.rank.glyph();
     if let Ok(ext) = cr.text_extents(letter) {
         cr.move_to(
@@ -265,11 +265,6 @@ fn draw_face_card(
         );
     }
     cr.show_text(letter).ok();
-
-    // Small suit glyph above and below the letter (inside the frame)
-    let ssz = w * 0.055;
-    draw_suit_shape(cr, card.suit, x + w / 2.0, inner.1 + ssz + 3.0, ssz);
-    draw_suit_shape(cr, card.suit, x + w / 2.0, inner.1 + inner.3 - ssz - 3.0, ssz);
 }
 
 // ─────────────────────────────────────────────────────────────────
