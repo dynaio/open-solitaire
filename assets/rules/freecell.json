@@ -1,0 +1,25 @@
+{
+  "id": "freecell",
+  "name": "FreeCell",
+  "description": "8 tableau piles, 4 free cells, 4 foundations. Build down alternating colors.",
+  "decks": 1,
+  "free_cells": 4,
+  "tableau": {
+    "piles": 8,
+    "initial_deal_pattern": [7, 7, 7, 7, 6, 6, 6, 6],
+    "only_last_face_up": false,
+    "build": "descending",
+    "alternate_color": true,
+    "empty_pile_accepts": "any"
+  },
+  "foundation": {
+    "piles": 4,
+    "build": "ascending",
+    "same_suit": true,
+    "start_rank": "ace"
+  },
+  "stock": {
+    "draw": 0,
+    "redeals": 0
+  }
+}

@@ -1,0 +1,25 @@
+{
+  "id": "klondike-draw3",
+  "name": "Klondike (Draw 3)",
+  "description": "The classic, harder. Draw 3 at a time.",
+  "decks": 1,
+  "scoring": "vegas",
+  "tableau": {
+    "piles": 7,
+    "initial_deal_pattern": [1, 2, 3, 4, 5, 6, 7],
+    "only_last_face_up": true,
+    "build": "descending",
+    "alternate_color": true,
+    "empty_pile_accepts": "king"
+  },
+  "foundation": {
+    "piles": 4,
+    "build": "ascending",
+    "same_suit": true,
+    "start_rank": "ace"
+  },
+  "stock": {
+    "draw": 3,
+    "redeals": "infinite"
+  }
+}
