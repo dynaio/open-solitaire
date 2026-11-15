@@ -24,9 +24,9 @@ pub struct GameConfig {
 
 pub fn apply_difficulty(rule: &mut RuleSet, d: Difficulty) {
     match d {
-        Difficulty::Easy => { rule.stock_draw = 1; rule.stock_redeals = Redeals::Infinite; }
-        Difficulty::Normal => { rule.stock_draw = 3; rule.stock_redeals = Redeals::Infinite; }
-        Difficulty::Hard => { rule.stock_draw = 3; rule.stock_redeals = Redeals::Count(0); }
+        Difficulty::Easy => { rule.stock.draw = 1; rule.stock.redeals = Redeals::Infinite; }
+        Difficulty::Normal => { rule.stock.draw = 3; rule.stock.redeals = Redeals::Infinite; }
+        Difficulty::Hard => { rule.stock.draw = 3; rule.stock.redeals = Redeals::Count(0); }
     }
 }
 

@@ -25,16 +25,11 @@ const MODES: &[(&str, &str)] = &[
 
 fn new_engine(mode_idx: usize, difficulty: Difficulty) -> Engine {
     let mut rule = RuleSet::from_json(MODES[mode_idx].1).expect("rule");
-    // Only apply difficulty to Klondike modes (FreeCell has no stock)
     if mode_idx < 2 {
         apply_difficulty(&mut rule, difficulty);
     }
-    // Find a guaranteed-solvable deal.
     let seed = find_solvable_seed(&rule, 1, 200);
-    let mut e = Engine::new(rule, seed);
-    // Run auto-foundation once at start (harmless in fresh deal).
-    let _ = e.auto_foundation_all();
-    e
+    Engine::new(rule, seed)
 }
 
 pub fn run() -> glib::ExitCode {
@@ -204,21 +199,16 @@ fn build_ui(app: &gtk::Application) {
                 // Click without starting a drag (e.g., empty slot) — try select/deselect
                 if let Some((pile, idx)) = target {
                     let cur = Selection { pile, from_idx: idx };
-                    let mut sel = selection.borrow_mut();
-                    *sel = match *sel {
+                    let current = *selection.borrow();
+                    let next = match current {
                         Some(s) if s.pile == cur.pile && s.from_idx == cur.from_idx => None,
                         None => Some(cur),
                         Some(s) => {
-                            // Attempt move from previous selection
                             let m = Move::Move { from: s.pile, from_idx: s.from_idx, to: pile };
-                            drop(sel);
-                            if engine.borrow_mut().apply(m) {
-                                None
-                            } else {
-                                Some(cur)
-                            }
+                            if engine.borrow_mut().apply(m) { None } else { Some(cur) }
                         }
                     };
+                    *selection.borrow_mut() = next;
                 } else {
                     *selection.borrow_mut() = None;
                 }
