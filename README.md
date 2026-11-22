@@ -105,7 +105,7 @@ Open Solitaire collects **absolutely no data**. It has no network access, no tel
 
 **Abdelkader Berassil**  
 Computer Science Engineer · Algeria  
-GitHub: [@dynaio]
+GitHub: [@dynaio](https://github.com/dynaio)
 
 ## License
 
