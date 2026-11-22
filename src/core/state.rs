@@ -57,7 +57,10 @@ impl GameState {
                 if pattern[col] as usize > row {
                     let card = deck[deck_idx];
                     deck_idx += 1;
-                    tableau[col].push(PlacedCard { card, face_up: false });
+                    tableau[col].push(PlacedCard {
+                        card,
+                        face_up: false,
+                    });
                 }
             }
         }
@@ -65,9 +68,13 @@ impl GameState {
         // Flip the last card of each tableau pile (if only_last_face_up).
         for pile in &mut tableau {
             if rule.tableau.only_last_face_up {
-                if let Some(last) = pile.last_mut() { last.face_up = true; }
+                if let Some(last) = pile.last_mut() {
+                    last.face_up = true;
+                }
             } else {
-                for c in pile.iter_mut() { c.face_up = true; }
+                for c in pile.iter_mut() {
+                    c.face_up = true;
+                }
             }
         }
 
@@ -108,7 +115,13 @@ impl GameState {
             PileRef::Foundation(i) => self.foundation[i as usize].len(),
             PileRef::Stock => self.stock.len(),
             PileRef::Waste => self.waste.len(),
-            PileRef::FreeCell(i) => if self.free_cells[i as usize].is_some() { 1 } else { 0 },
+            PileRef::FreeCell(i) => {
+                if self.free_cells[i as usize].is_some() {
+                    1
+                } else {
+                    0
+                }
+            }
         }
     }
 }

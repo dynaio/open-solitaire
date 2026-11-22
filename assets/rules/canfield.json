@@ -1,0 +1,25 @@
+{
+  "id": "canfield",
+  "name": "Canfield",
+  "description": "13 cards in reserve, 4 tableau piles, draw 3. Build up suit in foundations.",
+  "decks": 1,
+  "tableau": {
+    "piles": 4,
+    "initial_deal_pattern": [1, 1, 1, 1],
+    "only_last_face_up": true,
+    "build": "descending",
+    "alternate_color": true,
+    "empty_pile_accepts": "any",
+    "move_group": "any"
+  },
+  "foundation": {
+    "piles": 4,
+    "build": "ascending",
+    "same_suit": true,
+    "start_rank": "ace"
+  },
+  "stock": {
+    "draw": 3,
+    "redeals": "infinite"
+  }
+}

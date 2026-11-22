@@ -1,5 +1,5 @@
-use gtk4 as gtk;
 use gtk::prelude::*;
+use gtk4 as gtk;
 use std::cell::Cell;
 use std::rc::Rc;
 
@@ -7,15 +7,19 @@ use openpatience::core::rules::{Redeals, RuleSet};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Difficulty {
-    Easy,    // draw 1, infinite redeals
-    Normal,  // draw 3, infinite redeals
-    Hard,    // draw 3, no redeals
+    Easy,   // draw 1, infinite redeals
+    Normal, // draw 3, infinite redeals
+    Hard,   // draw 3, no redeals
 }
 
 impl Difficulty {
     #[allow(dead_code)]
     pub fn label(self) -> &'static str {
-        match self { Difficulty::Easy => "Easy", Difficulty::Normal => "Normal", Difficulty::Hard => "Hard" }
+        match self {
+            Difficulty::Easy => "Easy",
+            Difficulty::Normal => "Normal",
+            Difficulty::Hard => "Hard",
+        }
     }
 }
 
@@ -26,9 +30,18 @@ pub struct GameConfig {
 
 pub fn apply_difficulty(rule: &mut RuleSet, d: Difficulty) {
     match d {
-        Difficulty::Easy => { rule.stock.draw = 1; rule.stock.redeals = Redeals::Infinite; }
-        Difficulty::Normal => { rule.stock.draw = 3; rule.stock.redeals = Redeals::Infinite; }
-        Difficulty::Hard => { rule.stock.draw = 3; rule.stock.redeals = Redeals::Count(0); }
+        Difficulty::Easy => {
+            rule.stock.draw = 1;
+            rule.stock.redeals = Redeals::Infinite;
+        }
+        Difficulty::Normal => {
+            rule.stock.draw = 3;
+            rule.stock.redeals = Redeals::Infinite;
+        }
+        Difficulty::Hard => {
+            rule.stock.draw = 3;
+            rule.stock.redeals = Redeals::Count(0);
+        }
     }
 }
 
@@ -60,7 +73,7 @@ pub fn show_settings_dialog(
     let hint = gtk::Label::new(Some(
         "Easy — draw 1, infinite redeals. Great for learning.\n\
          Normal — draw 3, infinite redeals. The classic challenge.\n\
-         Hard — draw 3, no redeals. Win or start over."
+         Hard — draw 3, no redeals. Win or start over.",
     ));
     hint.set_xalign(0.0);
     hint.set_wrap(true);
@@ -105,9 +118,13 @@ pub fn show_settings_dialog(
     let normal_c = normal.clone();
     let diff = difficulty.clone();
     apply.connect_clicked(move |_| {
-        let chosen = if easy_c.is_active() { Difficulty::Easy }
-                     else if normal_c.is_active() { Difficulty::Normal }
-                     else { Difficulty::Hard };
+        let chosen = if easy_c.is_active() {
+            Difficulty::Easy
+        } else if normal_c.is_active() {
+            Difficulty::Normal
+        } else {
+            Difficulty::Hard
+        };
         diff.set(chosen);
         on_apply(chosen);
         win_a.close();

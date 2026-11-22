@@ -20,7 +20,8 @@ pub struct RuleSet {
 #[derive(Clone, Copy, Debug, Default, Deserialize, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum Scoring {
-    #[default] Standard,
+    #[default]
+    Standard,
     Vegas,
     Timed,
     None,
@@ -41,16 +42,25 @@ pub struct TableauRule {
 
 #[derive(Clone, Copy, Debug, Deserialize, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
-pub enum BuildOrder { Ascending, Descending }
+pub enum BuildOrder {
+    Ascending,
+    Descending,
+}
 
 #[derive(Clone, Copy, Debug, Deserialize, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
-pub enum EmptyPile { Any, King, Ace, None }
+pub enum EmptyPile {
+    Any,
+    King,
+    Ace,
+    None,
+}
 
 #[derive(Clone, Copy, Debug, Default, Deserialize, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum MoveGroup {
-    #[default] Any,
+    #[default]
+    Any,
     OnlyFaceUp,
     OnlySingle,
 }
@@ -66,11 +76,19 @@ pub struct FoundationRule {
 
 #[derive(Clone, Copy, Debug, Deserialize, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
-pub enum StartRank { Ace, King, Two }
+pub enum StartRank {
+    Ace,
+    King,
+    Two,
+}
 
 impl StartRank {
     pub fn as_value(self) -> u8 {
-        match self { StartRank::Ace => 1, StartRank::Two => 2, StartRank::King => 13 }
+        match self {
+            StartRank::Ace => 1,
+            StartRank::Two => 2,
+            StartRank::King => 13,
+        }
     }
 }
 
@@ -97,8 +115,11 @@ impl<'de> Deserialize<'de> for Redeals {
                 write!(f, "'infinite' or a non-negative integer")
             }
             fn visit_str<E: serde::de::Error>(self, v: &str) -> Result<Redeals, E> {
-                if v == "infinite" { Ok(Redeals::Infinite) }
-                else { Err(E::custom(format!("expected 'infinite', got '{}'", v))) }
+                if v == "infinite" {
+                    Ok(Redeals::Infinite)
+                } else {
+                    Err(E::custom(format!("expected 'infinite', got '{}'", v)))
+                }
             }
             fn visit_u64<E: serde::de::Error>(self, v: u64) -> Result<Redeals, E> {
                 Ok(Redeals::Count(v as u32))
@@ -123,21 +144,30 @@ impl RuleSet {
     }
 
     /// Total cards required by the rule (decks × 52).
-    pub fn total_cards(&self) -> usize { self.decks as usize * 52 }
+    pub fn total_cards(&self) -> usize {
+        self.decks as usize * 52
+    }
 
     /// Validate the rule is internally consistent.
     pub fn validate(&self) -> Result<(), String> {
         if self.tableau.initial_deal_pattern.len() != self.tableau.piles as usize {
             return Err(format!(
                 "initial_deal_pattern has {} entries but tableau.piles = {}",
-                self.tableau.initial_deal_pattern.len(), self.tableau.piles
+                self.tableau.initial_deal_pattern.len(),
+                self.tableau.piles
             ));
         }
-        let dealt: u32 = self.tableau.initial_deal_pattern.iter().map(|&n| n as u32).sum();
+        let dealt: u32 = self
+            .tableau
+            .initial_deal_pattern
+            .iter()
+            .map(|&n| n as u32)
+            .sum();
         if dealt as usize > self.total_cards() {
             return Err(format!(
                 "deal pattern needs {} cards but only {} available",
-                dealt, self.total_cards()
+                dealt,
+                self.total_cards()
             ));
         }
         Ok(())
@@ -159,7 +189,8 @@ mod tests {
 
     #[test]
     fn redeals_infinite_parses() {
-        let r = RuleSet::from_json(&std::fs::read_to_string("assets/rules/klondike.json").unwrap()).unwrap();
+        let r = RuleSet::from_json(&std::fs::read_to_string("assets/rules/klondike.json").unwrap())
+            .unwrap();
         assert_eq!(r.stock.redeals, Redeals::Infinite);
     }
 

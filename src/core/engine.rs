@@ -16,14 +16,23 @@ pub struct Engine {
 impl Engine {
     pub fn new(rules: RuleSet, seed: u64) -> Self {
         let state = GameState::new(&rules, seed);
-        Engine { state, rules, history: Vec::new(), solution: None }
+        Engine {
+            state,
+            rules,
+            history: Vec::new(),
+            solution: None,
+        }
     }
 
-    pub fn can(&self, m: &Move) -> bool { is_legal(&self.state, &self.rules, m) }
+    pub fn can(&self, m: &Move) -> bool {
+        is_legal(&self.state, &self.rules, m)
+    }
 
     /// Apply a move. Returns `true` if it was legal and applied.
     pub fn apply(&mut self, m: Move) -> bool {
-        if !self.can(&m) { return false; }
+        if !self.can(&m) {
+            return false;
+        }
 
         self.history.push(self.state.clone());
         if self.history.len() > MAX_UNDO_DEPTH {
@@ -52,7 +61,10 @@ impl Engine {
 
     pub fn undo(&mut self) -> bool {
         match self.history.pop() {
-            Some(prev) => { self.state = prev; true }
+            Some(prev) => {
+                self.state = prev;
+                true
+            }
             None => false,
         }
     }
@@ -89,7 +101,9 @@ impl Engine {
         // Auto-flip new top of source tableau if it's face-down.
         if let PileRef::Tableau(t) = from {
             if let Some(top) = self.state.tableau[t as usize].last_mut() {
-                if !top.face_up { top.face_up = true; }
+                if !top.face_up {
+                    top.face_up = true;
+                }
             }
         }
 
@@ -107,7 +121,11 @@ impl Engine {
         };
         for fi in 0..self.state.foundation.len() {
             let target = PileRef::Foundation(fi as u8);
-            let m = Move::Move { from, from_idx: (self.state.pile_len(from) - 1) as u8, to: target };
+            let m = Move::Move {
+                from,
+                from_idx: (self.state.pile_len(from) - 1) as u8,
+                to: target,
+            };
             if is_legal(&self.state, &self.rules, &m) {
                 let _ = self.apply_move_inner(from, top, target);
                 return;
@@ -115,16 +133,25 @@ impl Engine {
         }
     }
 
-    fn apply_move_inner(&mut self, from: PileRef, _top: crate::core::card::Card, to: PileRef) -> bool {
+    fn apply_move_inner(
+        &mut self,
+        from: PileRef,
+        _top: crate::core::card::Card,
+        to: PileRef,
+    ) -> bool {
         let idx = (self.state.pile_len(from) - 1) as u8;
         let cards = self.take_from(from, idx as usize);
         self.put_on(to, cards);
         if let PileRef::Tableau(t) = from {
             if let Some(top) = self.state.tableau[t as usize].last_mut() {
-                if !top.face_up { top.face_up = true; }
+                if !top.face_up {
+                    top.face_up = true;
+                }
             }
         }
-        if let PileRef::Foundation(_) = to { self.state.score += 10; }
+        if let PileRef::Foundation(_) = to {
+            self.state.score += 10;
+        }
         true
     }
 
@@ -134,10 +161,11 @@ impl Engine {
                 .drain(idx..)
                 .map(|p| p.card)
                 .collect(),
-            PileRef::Waste => {
-                self.state.waste.pop().into_iter().collect()
-            }
-            PileRef::FreeCell(f) => self.state.free_cells[f as usize].take().into_iter().collect(),
+            PileRef::Waste => self.state.waste.pop().into_iter().collect(),
+            PileRef::FreeCell(f) => self.state.free_cells[f as usize]
+                .take()
+                .into_iter()
+                .collect(),
             _ => Vec::new(),
         }
     }
@@ -146,7 +174,10 @@ impl Engine {
         match to {
             PileRef::Tableau(t) => {
                 for c in cards {
-                    self.state.tableau[t as usize].push(PlacedCard { card: c, face_up: true });
+                    self.state.tableau[t as usize].push(PlacedCard {
+                        card: c,
+                        face_up: true,
+                    });
                 }
             }
             PileRef::Foundation(f) => {
@@ -228,29 +259,43 @@ impl Engine {
         // 1. Any top card that can go straight to a foundation
         for t in 0..self.state.tableau.len() {
             let pile = &self.state.tableau[t];
-            if pile.is_empty() || !pile.last().unwrap().face_up { continue; }
+            if pile.is_empty() || !pile.last().unwrap().face_up {
+                continue;
+            }
             let m = Move::AutoFoundation(PileRef::Tableau(t as u8));
-            if self.can(&m) { return Some(m); }
+            if self.can(&m) {
+                return Some(m);
+            }
         }
         if !self.state.waste.is_empty() {
             let m = Move::AutoFoundation(PileRef::Waste);
-            if self.can(&m) { return Some(m); }
+            if self.can(&m) {
+                return Some(m);
+            }
         }
 
         // 2. Any tableau → tableau move that reveals a face-down card
         for t in 0..self.state.tableau.len() {
             let pile = &self.state.tableau[t];
-            if pile.len() < 2 { continue; }
+            if pile.len() < 2 {
+                continue;
+            }
             for i in 0..pile.len() - 1 {
-                if !pile[i].face_up || !pile[i + 1].face_up { continue; }
+                if !pile[i].face_up || !pile[i + 1].face_up {
+                    continue;
+                }
                 for dst in 0..self.state.tableau.len() {
-                    if dst == t { continue; }
+                    if dst == t {
+                        continue;
+                    }
                     let m = Move::Move {
                         from: PileRef::Tableau(t as u8),
                         from_idx: i as u8,
                         to: PileRef::Tableau(dst as u8),
                     };
-                    if self.can(&m) { return Some(m); }
+                    if self.can(&m) {
+                        return Some(m);
+                    }
                 }
             }
         }
@@ -263,20 +308,26 @@ impl Engine {
                     from_idx: (self.state.waste.len() - 1) as u8,
                     to: PileRef::Tableau(dst as u8),
                 };
-                if self.can(&m) { return Some(m); }
+                if self.can(&m) {
+                    return Some(m);
+                }
             }
         }
 
         // 4. Free cell → tableau (FreeCell mode)
         for f in 0..self.state.free_cells.len() {
-            if self.state.free_cells[f].is_none() { continue; }
+            if self.state.free_cells[f].is_none() {
+                continue;
+            }
             for dst in 0..self.state.tableau.len() {
                 let m = Move::Move {
                     from: PileRef::FreeCell(f as u8),
                     from_idx: 0,
                     to: PileRef::Tableau(dst as u8),
                 };
-                if self.can(&m) { return Some(m); }
+                if self.can(&m) {
+                    return Some(m);
+                }
             }
         }
 
@@ -284,15 +335,21 @@ impl Engine {
         for t in 0..self.state.tableau.len() {
             let pile = &self.state.tableau[t];
             for i in 0..pile.len() {
-                if !pile[i].face_up { continue; }
+                if !pile[i].face_up {
+                    continue;
+                }
                 for dst in 0..self.state.tableau.len() {
-                    if dst == t { continue; }
+                    if dst == t {
+                        continue;
+                    }
                     let m = Move::Move {
                         from: PileRef::Tableau(t as u8),
                         from_idx: i as u8,
                         to: PileRef::Tableau(dst as u8),
                     };
-                    if self.can(&m) { return Some(m); }
+                    if self.can(&m) {
+                        return Some(m);
+                    }
                 }
             }
         }
@@ -305,7 +362,9 @@ impl Engine {
         // 7. Recycle
         if !self.state.waste.is_empty() {
             let m = Move::Recycle;
-            if self.can(&m) { return Some(m); }
+            if self.can(&m) {
+                return Some(m);
+            }
         }
 
         None
@@ -319,19 +378,33 @@ impl Engine {
             moved = false;
             for t in 0..self.state.tableau.len() {
                 if self.state.tableau[t].is_empty()
-                    || !self.state.tableau[t].last().unwrap().face_up { continue; }
+                    || !self.state.tableau[t].last().unwrap().face_up
+                {
+                    continue;
+                }
                 let m = Move::AutoFoundation(PileRef::Tableau(t as u8));
-                if self.apply(m) { count += 1; moved = true; break; }
+                if self.apply(m) {
+                    count += 1;
+                    moved = true;
+                    break;
+                }
             }
             if !self.state.waste.is_empty() {
                 let m = Move::AutoFoundation(PileRef::Waste);
-                if self.apply(m) { count += 1; moved = true; }
+                if self.apply(m) {
+                    count += 1;
+                    moved = true;
+                }
             }
             if !moved {
                 for f in 0..self.state.free_cells.len() {
                     if self.state.free_cells[f].is_some() {
                         let m = Move::AutoFoundation(PileRef::FreeCell(f as u8));
-                        if self.apply(m) { count += 1; moved = true; break; }
+                        if self.apply(m) {
+                            count += 1;
+                            moved = true;
+                            break;
+                        }
                     }
                 }
             }
@@ -348,7 +421,12 @@ impl Engine {
     /// Pre-compute a winning move path from the current state.
     /// No-op if a solution already exists.
     pub fn ensure_solution(&mut self, max_states: usize) {
-        if self.solution.as_ref().map(|s| !s.is_empty()).unwrap_or(false) {
+        if self
+            .solution
+            .as_ref()
+            .map(|s| !s.is_empty())
+            .unwrap_or(false)
+        {
             return;
         }
         self.solution = crate::core::solver::solve_from_state(&self.state, &self.rules, max_states);

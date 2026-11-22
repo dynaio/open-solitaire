@@ -1,0 +1,25 @@
+{
+  "id": "yukon",
+  "name": "Yukon",
+  "description": "Like Klondike but all cards are dealt face-up. Move any group of face-up cards regardless of sequence.",
+  "decks": 1,
+  "tableau": {
+    "piles": 7,
+    "initial_deal_pattern": [1, 6, 7, 8, 9, 10, 11],
+    "only_last_face_up": false,
+    "build": "descending",
+    "alternate_color": true,
+    "empty_pile_accepts": "king",
+    "move_group": "only_face_up"
+  },
+  "foundation": {
+    "piles": 4,
+    "build": "ascending",
+    "same_suit": true,
+    "start_rank": "ace"
+  },
+  "stock": {
+    "draw": 0,
+    "redeals": 0
+  }
+}

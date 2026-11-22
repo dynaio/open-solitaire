@@ -1,0 +1,13 @@
+[Desktop Entry]
+Name=Open Solitaire
+GenericName=Solitaire
+Comment=Beautiful offline solitaire for Linux — 7 classic variants
+Exec=openpatience
+Icon=openpatience
+Terminal=false
+Type=Application
+Categories=Game;CardGame;
+Keywords=solitaire;cards;klondike;freecell;spider;yukon;canfield;patience;
+StartupNotify=true
+StartupWMClass=io.github.abdelkader.OpenSolitaire
+X-GNOME-UsesNotifications=false

@@ -2,14 +2,92 @@ use gtk4::cairo;
 use openpatience::core::card::Card;
 use openpatience::core::engine::Engine;
 use openpatience::core::state::{GameState, PileRef};
+use std::time::Instant;
 
-use super::render::card::{draw_hover_highlight, draw_selected_highlight, CARD_H, CARD_W};
+use super::render::card::{
+    draw_hover_highlight, draw_selected_highlight, draw_suit_shape, CARD_H, CARD_W,
+};
 use super::render::{draw_card_back, draw_card_face, draw_empty_slot, Theme};
+use openpatience::core::card::Suit;
 
 #[derive(Clone, Copy)]
 pub struct Selection {
     pub pile: PileRef,
     pub from_idx: u8,
+}
+
+pub struct VictoryAnimation {
+    cards: Vec<Card>,
+    started: Instant,
+}
+
+impl VictoryAnimation {
+    pub fn new(state: &GameState) -> Self {
+        let cards = state.foundation.iter().flatten().copied().collect();
+
+        Self {
+            cards,
+            started: Instant::now(),
+        }
+    }
+
+    pub fn is_finished(&self) -> bool {
+        let total = 2.6 + self.cards.len() as f64 * 0.025;
+        self.started.elapsed().as_secs_f64() >= total
+    }
+}
+
+/// Draws the completed game's cards as a staggered, cascading victory animation.
+pub fn draw_victory_animation(cr: &cairo::Context, w: f64, h: f64, animation: &VictoryAnimation) {
+    let elapsed = animation.started.elapsed().as_secs_f64();
+    let card_w = (CARD_W * 0.78).min(w * 0.16);
+    let card_h = card_w * CARD_H / CARD_W;
+    let theme = Theme::deep_emerald();
+    let flight_duration = 2.6;
+
+    for (index, card) in animation.cards.iter().enumerate() {
+        let delay = index as f64 * 0.025;
+        let local_time = elapsed - delay;
+
+        if local_time < 0.0 || local_time > flight_duration {
+            continue;
+        }
+
+        let t = (local_time / flight_duration).clamp(0.0, 1.0);
+        let eased = t * t * (3.0 - 2.0 * t);
+
+        // Cards launch from the foundation row.
+        let start_x = w * (0.20 + card.suit.as_u8() as f64 * 0.20);
+        let start_y = 28.0;
+
+        // Deterministic spread across the full board.
+        let spread = ((index * 37) % 997) as f64 / 997.0;
+        let end_x = 12.0 + spread * (w - card_w - 24.0);
+        let end_y = h + card_h;
+
+        let x = start_x + (end_x - start_x) * eased;
+        let arc = (std::f64::consts::PI * t).sin() * h * 0.48;
+        let y = start_y + (end_y - start_y) * eased - arc;
+
+        let direction = if index % 2 == 0 { 1.0 } else { -1.0 };
+        let rotation = direction * 0.85 * eased;
+
+        cr.save().ok();
+        cr.translate(x + card_w / 2.0, y + card_h / 2.0);
+        cr.rotate(rotation);
+
+        draw_card_face(
+            cr,
+            -card_w / 2.0,
+            -card_h / 2.0,
+            card_w,
+            card_h,
+            *card,
+            &theme,
+        );
+
+        cr.restore().ok();
+    }
 }
 
 pub struct DragState {
@@ -57,14 +135,35 @@ pub fn draw_board(
     let cy = h / 2.0;
     let r = (w.max(h)) * 0.7;
     let grad = cairo::RadialGradient::new(cx, cy, 0.0, cx, cy, r);
-    grad.add_color_stop_rgb(0.0, theme.table_bg_center.0, theme.table_bg_center.1, theme.table_bg_center.2);
+    grad.add_color_stop_rgb(
+        0.0,
+        theme.table_bg_center.0,
+        theme.table_bg_center.1,
+        theme.table_bg_center.2,
+    );
     grad.add_color_stop_rgb(0.7, theme.table_bg.0, theme.table_bg.1, theme.table_bg.2);
-    grad.add_color_stop_rgb(1.0,
+    grad.add_color_stop_rgb(
+        1.0,
         theme.table_bg.0 * 0.70,
         theme.table_bg.1 * 0.70,
-        theme.table_bg.2 * 0.70);
+        theme.table_bg.2 * 0.70,
+    );
     cr.set_source(&grad).ok();
     cr.paint().ok();
+
+    // Score banner (subtle, top center)
+    let score_text = format!("Score: {}", engine.state.score);
+    cr.select_font_face(
+        "Noto Sans",
+        cairo::FontSlant::Normal,
+        cairo::FontWeight::Normal,
+    );
+    cr.set_font_size(16.0);
+    cr.set_source_rgba(1.0, 1.0, 1.0, 0.35);
+    if let Ok(ext) = cr.text_extents(&score_text) {
+        cr.move_to(w / 2.0 - ext.width() / 2.0, 22.0);
+        cr.show_text(&score_text).ok();
+    }
 
     let (scale, off_x, off_y) = compute_layout(engine, w, h);
     let sx = |bx: f64| off_x + bx * scale;
@@ -129,8 +228,7 @@ pub fn draw_board(
 
     // Foundations (top-right)
     let n_foundation = engine.state.foundation.len();
-    let foundation_total_w =
-        n_foundation as f64 * CARD_W + (n_foundation as f64 - 1.0) * GAP;
+    let foundation_total_w = n_foundation as f64 * CARD_W + (n_foundation as f64 - 1.0) * GAP;
     let foundation_x_start = bw - BOARD_MARGIN - foundation_total_w;
     for i in 0..n_foundation {
         let fx = sx(foundation_x_start + (i as f64) * (CARD_W + GAP));
@@ -144,6 +242,22 @@ pub fn draw_board(
             }
         } else {
             draw_empty_slot(cr, fx, fy, card_w, card_h, &theme);
+            // Suit hint in empty foundation slot
+            let suit = match i % 4 {
+                0 => Suit::Spades,
+                1 => Suit::Hearts,
+                2 => Suit::Diamonds,
+                _ => Suit::Clubs,
+            };
+            let suit_color = theme.suit_color(suit);
+            suit_color.set_source_alpha(cr, 0.30);
+            draw_suit_shape(
+                cr,
+                suit,
+                fx + card_w / 2.0,
+                fy + card_h / 2.0,
+                card_w * 0.22,
+            );
         }
     }
 
@@ -184,7 +298,11 @@ pub fn draw_board(
                 }
             }
             if i + 1 < pile.len() {
-                y += ss(if placed.face_up { TAB_GAP_UP } else { TAB_GAP_DOWN });
+                y += ss(if placed.face_up {
+                    TAB_GAP_UP
+                } else {
+                    TAB_GAP_DOWN
+                });
             }
         }
     }
@@ -248,35 +366,23 @@ pub fn hit_test(
             && by >= BOARD_MARGIN
             && by <= BOARD_MARGIN + CARD_H
         {
-            return Some((
-                PileRef::Waste,
-                state.waste.len().saturating_sub(1) as u8,
-            ));
+            return Some((PileRef::Waste, state.waste.len().saturating_sub(1) as u8));
         }
     } else {
         for i in 0..n_free_cells {
             let fx = BOARD_MARGIN + (i as f64) * (CARD_W + GAP);
-            if bx >= fx
-                && bx <= fx + CARD_W
-                && by >= BOARD_MARGIN
-                && by <= BOARD_MARGIN + CARD_H
-            {
+            if bx >= fx && bx <= fx + CARD_W && by >= BOARD_MARGIN && by <= BOARD_MARGIN + CARD_H {
                 return Some((PileRef::FreeCell(i as u8), 0));
             }
         }
     }
 
     let n_foundation = state.foundation.len();
-    let foundation_total_w =
-        n_foundation as f64 * CARD_W + (n_foundation as f64 - 1.0) * GAP;
+    let foundation_total_w = n_foundation as f64 * CARD_W + (n_foundation as f64 - 1.0) * GAP;
     let foundation_x_start = base_w - BOARD_MARGIN - foundation_total_w;
     for i in 0..n_foundation {
         let fx = foundation_x_start + (i as f64) * (CARD_W + GAP);
-        if bx >= fx
-            && bx <= fx + CARD_W
-            && by >= BOARD_MARGIN
-            && by <= BOARD_MARGIN + CARD_H
-        {
+        if bx >= fx && bx <= fx + CARD_W && by >= BOARD_MARGIN && by <= BOARD_MARGIN + CARD_H {
             return Some((
                 PileRef::Foundation(i as u8),
                 state.foundation[i].len().saturating_sub(1) as u8,

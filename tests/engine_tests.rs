@@ -28,14 +28,32 @@ fn deal_seed_12345_is_stable() {
         let cards: Vec<String> = pile.iter().map(|p| p.card.to_string()).collect();
         parts.push(cards.join(","));
     }
-    let sig = parts.join("|") + "::" + &s.stock.iter().map(|c| c.to_string()).collect::<Vec<_>>().join(",");
+    let sig = parts.join("|")
+        + "::"
+        + &s.stock
+            .iter()
+            .map(|c| c.to_string())
+            .collect::<Vec<_>>()
+            .join(",");
     // Recompute independently to prove determinism:
     let s2 = GameState::new(&klondike(), 12345);
     let mut parts2 = Vec::new();
     for pile in &s2.tableau {
-        parts2.push(pile.iter().map(|p| p.card.to_string()).collect::<Vec<_>>().join(","));
+        parts2.push(
+            pile.iter()
+                .map(|p| p.card.to_string())
+                .collect::<Vec<_>>()
+                .join(","),
+        );
     }
-    let sig2 = parts2.join("|") + "::" + &s2.stock.iter().map(|c| c.to_string()).collect::<Vec<_>>().join(",");
+    let sig2 = parts2.join("|")
+        + "::"
+        + &s2
+            .stock
+            .iter()
+            .map(|c| c.to_string())
+            .collect::<Vec<_>>()
+            .join(",");
     assert_eq!(sig, sig2);
 }
 
@@ -53,7 +71,9 @@ fn can_move_ace_to_empty_foundation() {
     // Construct a synthetic state to test is_legal directly.
     let mut s = GameState::new(&klondike(), 1);
     // Clear tableau so we can place a controlled card on top.
-    for t in &mut s.tableau { t.clear(); }
+    for t in &mut s.tableau {
+        t.clear();
+    }
     s.tableau[0].push(PlacedCard {
         card: Card::new(Suit::Spades, Rank::Ace),
         face_up: true,
@@ -69,7 +89,9 @@ fn can_move_ace_to_empty_foundation() {
 #[test]
 fn cannot_move_two_to_empty_foundation() {
     let mut s = GameState::new(&klondike(), 1);
-    for t in &mut s.tableau { t.clear(); }
+    for t in &mut s.tableau {
+        t.clear();
+    }
     s.tableau[0].push(PlacedCard {
         card: Card::new(Suit::Spades, Rank::Two),
         face_up: true,
@@ -85,7 +107,9 @@ fn cannot_move_two_to_empty_foundation() {
 #[test]
 fn empty_tableau_accepts_only_king() {
     let mut s = GameState::new(&klondike(), 1);
-    for t in &mut s.tableau { t.clear(); }
+    for t in &mut s.tableau {
+        t.clear();
+    }
     s.tableau[0].push(PlacedCard {
         card: Card::new(Suit::Spades, Rank::King),
         face_up: true,
@@ -99,26 +123,54 @@ fn empty_tableau_accepts_only_king() {
         face_up: true,
     });
     // King to empty (T3) → legal
-    assert!(is_legal(&s, &klondike(), &Move::Move {
-        from: PileRef::Tableau(0), from_idx: 0, to: PileRef::Tableau(3),
-    }));
+    assert!(is_legal(
+        &s,
+        &klondike(),
+        &Move::Move {
+            from: PileRef::Tableau(0),
+            from_idx: 0,
+            to: PileRef::Tableau(3),
+        }
+    ));
     // Queen to empty (T3) → illegal
-    assert!(!is_legal(&s, &klondike(), &Move::Move {
-        from: PileRef::Tableau(2), from_idx: 0, to: PileRef::Tableau(3),
-    }));
+    assert!(!is_legal(
+        &s,
+        &klondike(),
+        &Move::Move {
+            from: PileRef::Tableau(2),
+            from_idx: 0,
+            to: PileRef::Tableau(3),
+        }
+    ));
 }
 
 #[test]
 fn valid_run_moves_as_a_group() {
     // 5♥ 4♠ 3♦ as a run can move onto 6♣.
     let mut s = GameState::new(&klondike(), 1);
-    for t in &mut s.tableau { t.clear(); }
-    s.tableau[0].push(PlacedCard { card: Card::new(Suit::Clubs, Rank::Six), face_up: true });
-    s.tableau[1].push(PlacedCard { card: Card::new(Suit::Hearts, Rank::Five), face_up: true });
-    s.tableau[1].push(PlacedCard { card: Card::new(Suit::Spades, Rank::Four), face_up: true });
-    s.tableau[1].push(PlacedCard { card: Card::new(Suit::Diamonds, Rank::Three), face_up: true });
+    for t in &mut s.tableau {
+        t.clear();
+    }
+    s.tableau[0].push(PlacedCard {
+        card: Card::new(Suit::Clubs, Rank::Six),
+        face_up: true,
+    });
+    s.tableau[1].push(PlacedCard {
+        card: Card::new(Suit::Hearts, Rank::Five),
+        face_up: true,
+    });
+    s.tableau[1].push(PlacedCard {
+        card: Card::new(Suit::Spades, Rank::Four),
+        face_up: true,
+    });
+    s.tableau[1].push(PlacedCard {
+        card: Card::new(Suit::Diamonds, Rank::Three),
+        face_up: true,
+    });
     let m = Move::Move {
-        from: PileRef::Tableau(1), from_idx: 0, to: PileRef::Tableau(0),
+        from: PileRef::Tableau(1),
+        from_idx: 0,
+        to: PileRef::Tableau(0),
     };
     assert!(is_legal(&s, &klondike(), &m));
 }
@@ -129,8 +181,12 @@ fn undo_is_unlimited_up_to_history_cap() {
     let total = 50;
     let mut applied = 0;
     for _ in 0..total {
-        if e.apply(Move::Draw) { applied += 1; }
+        if e.apply(Move::Draw) {
+            applied += 1;
+        }
     }
-    for _ in 0..applied { assert!(e.undo()); }
+    for _ in 0..applied {
+        assert!(e.undo());
+    }
     assert_eq!(e.state.waste.len(), 0);
 }

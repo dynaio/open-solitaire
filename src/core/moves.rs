@@ -7,7 +7,11 @@ use serde::{Deserialize, Serialize};
 pub enum Move {
     Draw,
     Recycle,
-    Move { from: PileRef, from_idx: u8, to: PileRef },
+    Move {
+        from: PileRef,
+        from_idx: u8,
+        to: PileRef,
+    },
     FlipTableau(u8),
     AutoFoundation(PileRef),
 }
@@ -16,7 +20,9 @@ pub fn is_legal(s: &GameState, r: &RuleSet, m: &Move) -> bool {
     match m {
         Move::Draw => !s.stock.is_empty(),
         Move::Recycle => {
-            if !s.stock.is_empty() || s.waste.is_empty() { return false; }
+            if !s.stock.is_empty() || s.waste.is_empty() {
+                return false;
+            }
             match r.stock.redeals {
                 Redeals::Infinite => true,
                 Redeals::Count(n) => s.redeals_used < n,
@@ -26,7 +32,10 @@ pub fn is_legal(s: &GameState, r: &RuleSet, m: &Move) -> bool {
         Move::FlipTableau(t) => {
             let idx = *t as usize;
             idx < s.tableau.len()
-                && matches!(s.tableau[idx].last(), Some(PlacedCard { face_up: false, .. }))
+                && matches!(
+                    s.tableau[idx].last(),
+                    Some(PlacedCard { face_up: false, .. })
+                )
         }
         Move::AutoFoundation(from) => top_card_of(s, *from)
             .map(|c| can_place_on_foundation_anywhere(s, r, c))
@@ -46,7 +55,9 @@ pub fn top_card_of(s: &GameState, r: PileRef) -> Option<crate::core::card::Card>
 }
 
 fn is_legal_move(s: &GameState, r: &RuleSet, from: PileRef, from_idx: u8, to: PileRef) -> bool {
-    if from == to { return false; }
+    if from == to {
+        return false;
+    }
 
     let fi = from_idx as usize;
 
@@ -54,7 +65,9 @@ fn is_legal_move(s: &GameState, r: &RuleSet, from: PileRef, from_idx: u8, to: Pi
     let cards: Vec<crate::core::card::Card> = match from {
         PileRef::Tableau(t) => {
             let pile = &s.tableau[t as usize];
-            if fi >= pile.len() { return false; }
+            if fi >= pile.len() {
+                return false;
+            }
             match r.tableau.move_group {
                 MoveGroup::OnlySingle if fi + 1 != pile.len() => return false,
                 MoveGroup::OnlyFaceUp if !pile[fi].face_up => return false,
@@ -69,11 +82,15 @@ fn is_legal_move(s: &GameState, r: &RuleSet, from: PileRef, from_idx: u8, to: Pi
             pile[fi..].iter().map(|p| p.card).collect()
         }
         PileRef::Waste => {
-            if fi + 1 != s.waste.len() || s.waste.is_empty() { return false; }
+            if fi + 1 != s.waste.len() || s.waste.is_empty() {
+                return false;
+            }
             vec![s.waste[s.waste.len() - 1]]
         }
         PileRef::FreeCell(f) => {
-            if fi != 0 { return false; }
+            if fi != 0 {
+                return false;
+            }
             match s.free_cells[f as usize] {
                 Some(c) => vec![c],
                 None => return false,
@@ -82,13 +99,17 @@ fn is_legal_move(s: &GameState, r: &RuleSet, from: PileRef, from_idx: u8, to: Pi
         PileRef::Foundation(_) | PileRef::Stock => return false,
     };
 
-    if cards.is_empty() { return false; }
+    if cards.is_empty() {
+        return false;
+    }
 
     // Destination checks.
     match to {
         PileRef::Tableau(ti) => {
             let ti = ti as usize;
-            if ti >= s.tableau.len() { return false; }
+            if ti >= s.tableau.len() {
+                return false;
+            }
             let dest = &s.tableau[ti];
             let first = cards[0];
             match dest.last() {
@@ -98,24 +119,46 @@ fn is_legal_move(s: &GameState, r: &RuleSet, from: PileRef, from_idx: u8, to: Pi
                     }
                 }
                 Some(top) => {
-                    if !top.face_up { return false; }
+                    if !top.face_up {
+                        return false;
+                    }
                     if !build_accepts(r.tableau.build, r.tableau.alternate_color, top.card, first) {
                         return false;
                     }
+                }
+            }
+            // Supermove limit for FreeCell-style games
+            if !s.free_cells.is_empty() && cards.len() > 1 {
+                let free = s.free_cells.iter().filter(|c| c.is_none()).count();
+                let empty_tabs = s.tableau.iter().filter(|p| p.is_empty()).count();
+                let adj_empty = if dest.is_empty() {
+                    empty_tabs.saturating_sub(1)
+                } else {
+                    empty_tabs
+                };
+                let max_movable = (free + 1) * (1usize << adj_empty.min(10));
+                if cards.len() > max_movable {
+                    return false;
                 }
             }
             true
         }
         PileRef::Foundation(fi) => {
             let fi = fi as usize;
-            if fi >= s.foundation.len() { return false; }
-            if cards.len() != 1 { return false; }
+            if fi >= s.foundation.len() {
+                return false;
+            }
+            if cards.len() != 1 {
+                return false;
+            }
             let c = cards[0];
             let pile = &s.foundation[fi];
             match pile.last() {
                 None => c.rank.value() == r.foundation.start_rank.as_value(),
                 Some(top) => {
-                    if r.foundation.same_suit && top.suit != c.suit { return false; }
+                    if r.foundation.same_suit && top.suit != c.suit {
+                        return false;
+                    }
                     match r.foundation.build {
                         BuildOrder::Ascending => c.rank.value() == top.rank.value() + 1,
                         BuildOrder::Descending => c.rank.value() + 1 == top.rank.value(),
@@ -124,7 +167,9 @@ fn is_legal_move(s: &GameState, r: &RuleSet, from: PileRef, from_idx: u8, to: Pi
             }
         }
         PileRef::FreeCell(fi) => {
-            if cards.len() != 1 { return false; }
+            if cards.len() != 1 {
+                return false;
+            }
             fi < s.free_cells.len() as u8 && s.free_cells[fi as usize].is_none()
         }
         PileRef::Stock | PileRef::Waste => false,
@@ -140,15 +185,23 @@ fn is_valid_run(pile: &[PlacedCard], build: BuildOrder, alternate_color: bool) -
     for w in pile.windows(2) {
         let a_placed = &w[0];
         let b_placed = &w[1];
-        if !a_placed.face_up || !b_placed.face_up { return false; }
+        if !a_placed.face_up || !b_placed.face_up {
+            return false;
+        }
         let a = a_placed.card;
         let b = b_placed.card;
         let rank_ok = match build {
             BuildOrder::Descending => b.rank.value() + 1 == a.rank.value(),
             BuildOrder::Ascending => a.rank.value() + 1 == b.rank.value(),
         };
-        let color_ok = if alternate_color { a.suit.is_red() != b.suit.is_red() } else { true };
-        if !rank_ok || !color_ok { return false; }
+        let color_ok = if alternate_color {
+            a.suit.is_red() != b.suit.is_red()
+        } else {
+            true
+        };
+        if !rank_ok || !color_ok {
+            return false;
+        }
     }
     true
 }
@@ -163,7 +216,11 @@ fn build_accepts(
         BuildOrder::Descending => next.rank.value() + 1 == top.rank.value(),
         BuildOrder::Ascending => top.rank.value() + 1 == next.rank.value(),
     };
-    let color_ok = if alternate_color { top.suit.is_red() != next.suit.is_red() } else { true };
+    let color_ok = if alternate_color {
+        top.suit.is_red() != next.suit.is_red()
+    } else {
+        true
+    };
     rank_ok && color_ok
 }
 
@@ -193,7 +250,9 @@ fn can_place_on_foundation_anywhere(
                     }
             }
         };
-        if ok { return true; }
+        if ok {
+            return true;
+        }
     }
     false
 }

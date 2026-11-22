@@ -16,8 +16,20 @@ pub fn rounded_rect(cr: &cairo::Context, x: f64, y: f64, w: f64, h: f64, r: f64)
     cr.new_sub_path();
     cr.arc(x + w - r, y + r, r, -std::f64::consts::FRAC_PI_2, 0.0);
     cr.arc(x + w - r, y + h - r, r, 0.0, std::f64::consts::FRAC_PI_2);
-    cr.arc(x + r, y + h - r, r, std::f64::consts::FRAC_PI_2, std::f64::consts::PI);
-    cr.arc(x + r, y + r, r, std::f64::consts::PI, 3.0 * std::f64::consts::FRAC_PI_2);
+    cr.arc(
+        x + r,
+        y + h - r,
+        r,
+        std::f64::consts::FRAC_PI_2,
+        std::f64::consts::PI,
+    );
+    cr.arc(
+        x + r,
+        y + r,
+        r,
+        std::f64::consts::PI,
+        3.0 * std::f64::consts::FRAC_PI_2,
+    );
     cr.close_path();
 }
 
@@ -34,10 +46,38 @@ pub fn draw_suit_shape(cr: &cairo::Context, suit: Suit, cx: f64, cy: f64, s: f64
 fn draw_heart(cr: &cairo::Context, cx: f64, cy: f64, s: f64) {
     let w = s * 0.95;
     cr.move_to(cx, cy + s);
-    cr.curve_to(cx - w * 1.15, cy + s * 0.15, cx - w * 1.05, cy - s * 0.85, cx - w * 0.35, cy - s * 0.85);
-    cr.curve_to(cx - w * 0.10, cy - s * 0.85, cx, cy - s * 0.45, cx, cy - s * 0.35);
-    cr.curve_to(cx, cy - s * 0.45, cx + w * 0.10, cy - s * 0.85, cx + w * 0.35, cy - s * 0.85);
-    cr.curve_to(cx + w * 1.05, cy - s * 0.85, cx + w * 1.15, cy + s * 0.15, cx, cy + s);
+    cr.curve_to(
+        cx - w * 1.15,
+        cy + s * 0.15,
+        cx - w * 1.05,
+        cy - s * 0.85,
+        cx - w * 0.35,
+        cy - s * 0.85,
+    );
+    cr.curve_to(
+        cx - w * 0.10,
+        cy - s * 0.85,
+        cx,
+        cy - s * 0.45,
+        cx,
+        cy - s * 0.35,
+    );
+    cr.curve_to(
+        cx,
+        cy - s * 0.45,
+        cx + w * 0.10,
+        cy - s * 0.85,
+        cx + w * 0.35,
+        cy - s * 0.85,
+    );
+    cr.curve_to(
+        cx + w * 1.05,
+        cy - s * 0.85,
+        cx + w * 1.15,
+        cy + s * 0.15,
+        cx,
+        cy + s,
+    );
     cr.close_path();
 }
 
@@ -53,10 +93,38 @@ fn draw_diamond(cr: &cairo::Context, cx: f64, cy: f64, s: f64) {
 fn draw_spade(cr: &cairo::Context, cx: f64, cy: f64, s: f64) {
     let w = s * 0.95;
     cr.move_to(cx, cy - s);
-    cr.curve_to(cx + w * 1.15, cy - s * 0.15, cx + w * 1.05, cy + s * 0.85, cx + w * 0.35, cy + s * 0.85);
-    cr.curve_to(cx + w * 0.10, cy + s * 0.85, cx, cy + s * 0.45, cx, cy + s * 0.35);
-    cr.curve_to(cx, cy + s * 0.45, cx - w * 0.10, cy + s * 0.85, cx - w * 0.35, cy + s * 0.85);
-    cr.curve_to(cx - w * 1.05, cy + s * 0.85, cx - w * 1.15, cy - s * 0.15, cx, cy - s);
+    cr.curve_to(
+        cx + w * 1.15,
+        cy - s * 0.15,
+        cx + w * 1.05,
+        cy + s * 0.85,
+        cx + w * 0.35,
+        cy + s * 0.85,
+    );
+    cr.curve_to(
+        cx + w * 0.10,
+        cy + s * 0.85,
+        cx,
+        cy + s * 0.45,
+        cx,
+        cy + s * 0.35,
+    );
+    cr.curve_to(
+        cx,
+        cy + s * 0.45,
+        cx - w * 0.10,
+        cy + s * 0.85,
+        cx - w * 0.35,
+        cy + s * 0.85,
+    );
+    cr.curve_to(
+        cx - w * 1.05,
+        cy + s * 0.85,
+        cx - w * 1.15,
+        cy - s * 0.15,
+        cx,
+        cy - s,
+    );
     cr.close_path();
     cr.move_to(cx - s * 0.15, cy + s);
     cr.line_to(cx - s * 0.10, cy + s * 0.7);
@@ -70,9 +138,21 @@ fn draw_club(cr: &cairo::Context, cx: f64, cy: f64, s: f64) {
     let lobe = s * 0.42;
     cr.arc(cx, cy - lobe, r, 0.0, 2.0 * std::f64::consts::PI);
     cr.close_path();
-    cr.arc(cx - r * 0.95, cy + lobe * 0.3, r, 0.0, 2.0 * std::f64::consts::PI);
+    cr.arc(
+        cx - r * 0.95,
+        cy + lobe * 0.3,
+        r,
+        0.0,
+        2.0 * std::f64::consts::PI,
+    );
     cr.close_path();
-    cr.arc(cx + r * 0.95, cy + lobe * 0.3, r, 0.0, 2.0 * std::f64::consts::PI);
+    cr.arc(
+        cx + r * 0.95,
+        cy + lobe * 0.3,
+        r,
+        0.0,
+        2.0 * std::f64::consts::PI,
+    );
     cr.close_path();
     cr.move_to(cx - s * 0.14, cy + s);
     cr.line_to(cx - s * 0.08, cy + s * 0.55);
@@ -95,13 +175,56 @@ fn pip_positions(rank: Rank) -> Vec<(f64, f64)> {
         Three => vec![(c, 0.20), (c, 0.50), (c, 0.80)],
         Four => vec![(l, 0.20), (r, 0.20), (l, 0.80), (r, 0.80)],
         Five => vec![(l, 0.20), (r, 0.20), (c, 0.50), (l, 0.80), (r, 0.80)],
-        Six => vec![(l, 0.20), (r, 0.20), (l, 0.50), (r, 0.50), (l, 0.80), (r, 0.80)],
-        Seven => vec![(l, 0.20), (r, 0.20), (c, 0.35), (l, 0.50), (r, 0.50), (l, 0.80), (r, 0.80)],
-        Eight => vec![(l, 0.20), (r, 0.20), (c, 0.35), (l, 0.50), (r, 0.50), (c, 0.65), (l, 0.80), (r, 0.80)],
-        Nine => vec![(l, 0.16), (r, 0.16), (l, 0.34), (r, 0.34), (c, 0.50),
-                     (l, 0.66), (r, 0.66), (l, 0.84), (r, 0.84)],
-        Ten => vec![(l, 0.16), (r, 0.16), (c, 0.28), (l, 0.40), (r, 0.40),
-                    (l, 0.60), (r, 0.60), (c, 0.72), (l, 0.84), (r, 0.84)],
+        Six => vec![
+            (l, 0.20),
+            (r, 0.20),
+            (l, 0.50),
+            (r, 0.50),
+            (l, 0.80),
+            (r, 0.80),
+        ],
+        Seven => vec![
+            (l, 0.20),
+            (r, 0.20),
+            (c, 0.35),
+            (l, 0.50),
+            (r, 0.50),
+            (l, 0.80),
+            (r, 0.80),
+        ],
+        Eight => vec![
+            (l, 0.20),
+            (r, 0.20),
+            (c, 0.35),
+            (l, 0.50),
+            (r, 0.50),
+            (c, 0.65),
+            (l, 0.80),
+            (r, 0.80),
+        ],
+        Nine => vec![
+            (l, 0.16),
+            (r, 0.16),
+            (l, 0.34),
+            (r, 0.34),
+            (c, 0.50),
+            (l, 0.66),
+            (r, 0.66),
+            (l, 0.84),
+            (r, 0.84),
+        ],
+        Ten => vec![
+            (l, 0.16),
+            (r, 0.16),
+            (c, 0.28),
+            (l, 0.40),
+            (r, 0.40),
+            (l, 0.60),
+            (r, 0.60),
+            (c, 0.72),
+            (l, 0.84),
+            (r, 0.84),
+        ],
         _ => vec![],
     }
 }
@@ -112,8 +235,12 @@ fn pip_positions(rank: Rank) -> Vec<(f64, f64)> {
 
 pub fn draw_card_face(
     cr: &cairo::Context,
-    x: f64, y: f64, w: f64, h: f64,
-    card: Card, theme: &Theme,
+    x: f64,
+    y: f64,
+    w: f64,
+    h: f64,
+    card: Card,
+    theme: &Theme,
 ) {
     // Two-layer shadow for depth
     rounded_rect(cr, x + 3.0, y + 4.0, w, h, CARD_RADIUS);
@@ -143,8 +270,13 @@ pub fn draw_card_face(
 
 fn draw_corner_index(
     cr: &cairo::Context,
-    x: f64, y: f64, w: f64, h: f64,
-    card: Card, sc: Rgb, orientation: f64,
+    x: f64,
+    y: f64,
+    w: f64,
+    h: f64,
+    card: Card,
+    sc: Rgb,
+    orientation: f64,
 ) {
     cr.save().ok();
     if orientation < 0.0 {
@@ -155,7 +287,11 @@ fn draw_corner_index(
 
     // Bigger rank text
     sc.set_source(cr);
-    cr.select_font_face("Noto Sans", cairo::FontSlant::Normal, cairo::FontWeight::Bold);
+    cr.select_font_face(
+        "Noto Sans",
+        cairo::FontSlant::Normal,
+        cairo::FontWeight::Bold,
+    );
     cr.set_font_size(w * 0.235);
     let rank_str = card.rank.glyph();
     if let Ok(ext) = cr.text_extents(rank_str) {
@@ -166,14 +302,25 @@ fn draw_corner_index(
 
     // Suit under the rank
     let suit_size = w * 0.075;
-    draw_suit_shape(cr, card.suit, x + w * 0.14, y + h * 0.255 + suit_size, suit_size);
+    draw_suit_shape(
+        cr,
+        card.suit,
+        x + w * 0.14,
+        y + h * 0.255 + suit_size,
+        suit_size,
+    );
     cr.restore().ok();
 }
 
 fn draw_center(
     cr: &cairo::Context,
-    x: f64, y: f64, w: f64, h: f64,
-    card: Card, sc: Rgb, theme: &Theme,
+    x: f64,
+    y: f64,
+    w: f64,
+    h: f64,
+    card: Card,
+    sc: Rgb,
+    theme: &Theme,
 ) {
     sc.set_source(cr);
     match card.rank {
@@ -194,8 +341,13 @@ fn draw_center(
 
 fn draw_face_card(
     cr: &cairo::Context,
-    x: f64, y: f64, w: f64, h: f64,
-    card: Card, sc: Rgb, theme: &Theme,
+    x: f64,
+    y: f64,
+    w: f64,
+    h: f64,
+    card: Card,
+    sc: Rgb,
+    theme: &Theme,
 ) {
     // Inner frame
     let ix = w * 0.22;
@@ -207,6 +359,11 @@ fn draw_face_card(
     cr.rectangle(fx, fy, fw, fh);
     cr.fill().ok();
 
+    // Faint suit watermark behind the letter
+    let wm_size = fw.min(fh) * 0.55;
+    sc.set_source_alpha(cr, 0.08);
+    draw_suit_shape(cr, card.suit, fx + fw / 2.0, fy + fh / 2.0, wm_size);
+
     // Border
     sc.set_source_alpha(cr, 0.80);
     cr.set_line_width(1.3);
@@ -215,7 +372,11 @@ fn draw_face_card(
 
     // Big letter
     sc.set_source(cr);
-    cr.select_font_face("Noto Serif", cairo::FontSlant::Normal, cairo::FontWeight::Bold);
+    cr.select_font_face(
+        "Noto Serif",
+        cairo::FontSlant::Normal,
+        cairo::FontWeight::Bold,
+    );
     cr.set_font_size(w * 0.40);
     let letter = card.rank.glyph();
     if let Ok(ext) = cr.text_extents(letter) {
@@ -231,11 +392,7 @@ fn draw_face_card(
 // Back, slots, highlights
 // ─────────────────────────────────────────────────────────────────
 
-pub fn draw_card_back(
-    cr: &cairo::Context,
-    x: f64, y: f64, w: f64, h: f64,
-    theme: &Theme,
-) {
+pub fn draw_card_back(cr: &cairo::Context, x: f64, y: f64, w: f64, h: f64, theme: &Theme) {
     rounded_rect(cr, x + 3.0, y + 4.0, w, h, CARD_RADIUS);
     cr.set_source_rgba(0.0, 0.0, 0.0, 0.14);
     cr.fill().ok();
@@ -251,14 +408,28 @@ pub fn draw_card_back(
     cr.stroke().ok();
 
     let inset = w * 0.07;
-    rounded_rect(cr, x + inset, y + inset, w - 2.0 * inset, h - 2.0 * inset, CARD_RADIUS * 0.7);
+    rounded_rect(
+        cr,
+        x + inset,
+        y + inset,
+        w - 2.0 * inset,
+        h - 2.0 * inset,
+        CARD_RADIUS * 0.7,
+    );
     cr.set_line_width(1.5);
     theme.card_back_pattern.set_source_alpha(cr, 0.60);
     cr.stroke().ok();
 
     // Inner second border (nested)
     let inset2 = w * 0.13;
-    rounded_rect(cr, x + inset2, y + inset2, w - 2.0 * inset2, h - 2.0 * inset2, CARD_RADIUS * 0.5);
+    rounded_rect(
+        cr,
+        x + inset2,
+        y + inset2,
+        w - 2.0 * inset2,
+        h - 2.0 * inset2,
+        CARD_RADIUS * 0.5,
+    );
     cr.set_line_width(0.8);
     theme.card_back_pattern.set_source_alpha(cr, 0.35);
     cr.stroke().ok();
@@ -274,13 +445,39 @@ pub fn draw_card_back(
     cr.close_path();
     theme.card_back_pattern.set_source_alpha(cr, 0.55);
     cr.fill().ok();
+
+    // Subtle diagonal cross-hatch lines for texture
+    {
+        let inset = w * 0.07;
+        let x0 = x + inset;
+        let y0 = y + inset;
+        let x1 = x + w - inset;
+        let y1 = y + h - inset;
+        cr.save().ok();
+        rounded_rect(
+            cr,
+            x + inset,
+            y + inset,
+            w - 2.0 * inset,
+            h - 2.0 * inset,
+            CARD_RADIUS * 0.7,
+        );
+        cr.clip();
+        cr.set_line_width(0.5);
+        theme.card_back_pattern.set_source_alpha(cr, 0.15);
+        let step = w * 0.12;
+        let mut xi = x0;
+        while xi < x1 + (y1 - y0) {
+            cr.move_to(xi, y0);
+            cr.line_to(xi - (y1 - y0), y1);
+            xi += step;
+        }
+        cr.stroke().ok();
+        cr.restore().ok();
+    }
 }
 
-pub fn draw_empty_slot(
-    cr: &cairo::Context,
-    x: f64, y: f64, w: f64, h: f64,
-    theme: &Theme,
-) {
+pub fn draw_empty_slot(cr: &cairo::Context, x: f64, y: f64, w: f64, h: f64, theme: &Theme) {
     rounded_rect(cr, x, y, w, h, CARD_RADIUS);
     theme.empty_slot.set_source_alpha(cr, 0.08);
     cr.fill_preserve().ok();
@@ -291,11 +488,7 @@ pub fn draw_empty_slot(
     cr.set_dash(&[], 0.0);
 }
 
-pub fn draw_selected_highlight(
-    cr: &cairo::Context,
-    x: f64, y: f64, w: f64, h: f64,
-    theme: &Theme,
-) {
+pub fn draw_selected_highlight(cr: &cairo::Context, x: f64, y: f64, w: f64, h: f64, theme: &Theme) {
     // Glow
     rounded_rect(cr, x - 4.0, y - 4.0, w + 8.0, h + 8.0, CARD_RADIUS + 4.0);
     theme.gold.set_source_alpha(cr, 0.25);
@@ -308,11 +501,7 @@ pub fn draw_selected_highlight(
     cr.stroke().ok();
 }
 
-pub fn draw_hover_highlight(
-    cr: &cairo::Context,
-    x: f64, y: f64, w: f64, h: f64,
-    theme: &Theme,
-) {
+pub fn draw_hover_highlight(cr: &cairo::Context, x: f64, y: f64, w: f64, h: f64, theme: &Theme) {
     rounded_rect(cr, x - 1.0, y - 1.0, w + 2.0, h + 2.0, CARD_RADIUS + 1.0);
     cr.set_line_width(2.0);
     theme.gold.set_source_alpha(cr, 0.55);

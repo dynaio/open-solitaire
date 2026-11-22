@@ -1,0 +1,25 @@
+{
+  "id": "spider-1suit",
+  "name": "Spider (1 Suit)",
+  "description": "Build 8 descending sequences from King to Ace in the same suit. All cards are Spades.",
+  "decks": 2,
+  "tableau": {
+    "piles": 10,
+    "initial_deal_pattern": [6, 6, 6, 6, 5, 5, 5, 5, 5, 5],
+    "only_last_face_up": true,
+    "build": "descending",
+    "alternate_color": false,
+    "empty_pile_accepts": "king",
+    "move_group": "any"
+  },
+  "foundation": {
+    "piles": 8,
+    "build": "ascending",
+    "same_suit": true,
+    "start_rank": "ace"
+  },
+  "stock": {
+    "draw": 10,
+    "redeals": 0
+  }
+}

@@ -203,17 +203,20 @@ pub fn solve(rule: &RuleSet, seed: u64, max_states: usize) -> Option<Vec<Move>> 
 }
 
 /// Solve starting from an arbitrary state (used to resume after a user move).
-pub fn solve_from_state(
-    state: &GameState,
-    rule: &RuleSet,
-    max_states: usize,
-) -> Option<Vec<Move>> {
+pub fn solve_from_state(state: &GameState, rule: &RuleSet, max_states: usize) -> Option<Vec<Move>> {
     let mut engine = Engine::new(rule.clone(), state.deal_seed);
     engine.state = state.clone();
     let mut visited = HashSet::new();
     let mut path = Vec::new();
     let mut count = 0;
-    dfs(&mut engine, &mut visited, &mut path, 500, max_states, &mut count)
+    dfs(
+        &mut engine,
+        &mut visited,
+        &mut path,
+        500,
+        max_states,
+        &mut count,
+    )
 }
 
 /// Find the first solvable seed at or after `start`.
