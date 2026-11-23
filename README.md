@@ -112,3 +112,14 @@ GitHub: [@dynaio](https://github.com/dynaio)
 GNU General Public License v3.0 or later — see [LICENSE](LICENSE) for details.
 
 This is free software: you can use, copy, modify and distribute it under the terms of the GPL-3.0+.
+
+## Screenshots
+
+### Home Screen
+
+![Open Solitaire - Game Selection](solitaire2.png)
+
+### Gameplay
+
+![Open Solitaire - Gameplay](solitaire1.png)
+
