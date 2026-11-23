@@ -8,14 +8,6 @@
 
 ## Features
 
-## HEAD
--  **Multiple game modes** — Klondike (draw 1 & 3), FreeCell, Spider (WIP)
--  **Native GTK4** — real Linux app, not a webview. Adwaita header bar, Wayland-first
--  **Cairo-rendered cards** — vector suit shapes, real pip layouts, smooth shadows
--  **Offline forever** — zero network code, no telemetry, no backdoors
--  **Deterministic deals** — every game has a shareable seed number
--  **Keyboard & mouse** — `U` undo, `N` new, `D` draw, `F` auto-foundation
-=======
 - **7 Classic Game Variants** — Klondike, Klondike Draw 3, FreeCell, Spider (1 Suit), Spider (4 Suits), Yukon, Canfield
 - **100% Offline** — No internet connection, no data collection, no ads
 - **Smooth Drag & Drop** — Natural card interaction with animations
@@ -25,7 +17,6 @@
 - **Keyboard Shortcuts** — Full keyboard control for power users
 - **Score Tracking** — Live score, move count, and game timer
 - **Privacy First** — Zero telemetry, zero analytics, zero data leaving your machine
->>>>>>> 6e347a0 (Release v1.0.0: add seven solitaire games and improved GUI)
 
 ## Game Variants
 
@@ -74,7 +65,7 @@ sudo pacman -S gtk4 libadwaita
 ### Quick Install
 
 ```bash
-git clone https://github.com/abdelkader/openpatience
+git clone https://github.com/dynaio/openpatience
 cd openpatience
 ./install.sh          # installs to /usr/local by default
 ```
@@ -105,7 +96,7 @@ Open Solitaire collects **absolutely no data**. It has no network access, no tel
 
 **Abdelkader Berassil**  
 Computer Science Engineer · Algeria  
-GitHub: [@dynaio](https://github.com/dynaio)
+GitHub: [@abdelkader](https://github.com/dynaio)
 
 ## License
 
