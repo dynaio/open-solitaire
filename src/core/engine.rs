@@ -7,7 +7,7 @@ pub const MAX_UNDO_DEPTH: usize = 500;
 pub struct Engine {
     pub state: GameState,
     pub rules: RuleSet,
-    history: Vec<GameState>,
+    history: Vec<(GameState, Option<Vec<Move>>)>,
     /// Pre-computed winning move sequence (remaining). Populated by `ensure_solution`.
     /// If `None`, `hint()` falls back to the greedy heuristic.
     pub solution: Option<Vec<Move>>,
@@ -34,7 +34,8 @@ impl Engine {
             return false;
         }
 
-        self.history.push(self.state.clone());
+        self.history
+            .push((self.state.clone(), self.solution.clone()));
         if self.history.len() > MAX_UNDO_DEPTH {
             self.history.remove(0);
         }
@@ -61,8 +62,9 @@ impl Engine {
 
     pub fn undo(&mut self) -> bool {
         match self.history.pop() {
-            Some(prev) => {
-                self.state = prev;
+            Some((prev_state, prev_solution)) => {
+                self.state = prev_state;
+                self.solution = prev_solution;
                 true
             }
             None => false,
@@ -222,6 +224,17 @@ mod tests {
         assert_ne!(format!("{:?}", e.state), snapshot);
         assert!(e.undo());
         assert_eq!(format!("{:?}", e.state), snapshot);
+    }
+
+    #[test]
+    fn undo_restores_solution_path() {
+        let mut e = Engine::new(klondike(), 42);
+        let original = vec![Move::Draw, Move::Recycle];
+        e.solution = Some(original.clone());
+        assert!(e.apply(Move::Draw));
+        assert_eq!(e.solution, Some(vec![Move::Recycle]));
+        assert!(e.undo());
+        assert_eq!(e.solution, Some(original));
     }
 
     #[test]

@@ -52,40 +52,104 @@ fn new_engine(mode_idx: usize, difficulty: Difficulty) -> Engine {
     Engine::new(rule, seed)
 }
 
-/// Solve in a background thread; attach the result to the Engine when done.
-/// The window is fully interactive while this runs — user won't notice.
-fn spawn_background_solve(engine: Rc<std::cell::RefCell<Engine>>) {
-    use gtk::glib;
+/// Run a solution search away from GTK's main thread. Results are attached only
+/// if the board and rules are still the same as when the search started.
+fn request_hint(
+    engine: Rc<std::cell::RefCell<Engine>>,
+    area: gtk::DrawingArea,
+    move_count: Rc<Cell<u32>>,
+    solving: Rc<Cell<bool>>,
+) {
     use std::sync::mpsc;
-    use std::sync::Mutex;
 
-    let state_snapshot = engine.borrow().state.clone();
-    let rules_snapshot = engine.borrow().rules.clone();
+    {
+        let mut e = engine.borrow_mut();
+        if let Some(movement) = e
+            .solution
+            .as_ref()
+            .and_then(|s| s.first())
+            .cloned()
+            .or_else(|| {
+                if !matches!(e.rules.id.as_str(), "klondike" | "klondike-draw3") {
+                    e.greedy_hint()
+                } else {
+                    None
+                }
+            })
+        {
+            if e.apply(movement) {
+                move_count.set(move_count.get() + 1);
+            }
+            drop(e);
+            area.queue_draw();
+            return;
+        }
+        if !matches!(e.rules.id.as_str(), "klondike" | "klondike-draw3") {
+            return;
+        }
+    }
 
-    let (tx, rx) = mpsc::channel::<Option<Vec<Move>>>();
-    let rx = Mutex::new(rx);
+    if solving.replace(true) {
+        return;
+    }
+
+    let (state_snapshot, rules_snapshot) = {
+        let e = engine.borrow();
+        (e.state.clone(), e.rules.clone())
+    };
+    let state_key = openpatience::core::solver::state_signature(&state_snapshot);
+    let rules_key = openpatience::core::solver::rules_signature(&rules_snapshot);
+    let (tx, rx) = mpsc::channel();
+    let cancelled = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
+    let worker_cancelled = cancelled.clone();
 
     std::thread::spawn(move || {
-        let sol =
-            openpatience::core::solver::solve_from_state(&state_snapshot, &rules_snapshot, 200_000);
-        tx.send(sol).ok();
+        let result = openpatience::core::solver::solve_from_state_cancellable(
+            &state_snapshot,
+            &rules_snapshot,
+            200_000,
+            &worker_cancelled,
+        );
+        let _ = tx.send(result);
     });
 
-    // Poll the channel from the GTK main loop every 100 ms.
-    glib::timeout_add_local(std::time::Duration::from_millis(100), move || {
-        match rx.lock().unwrap().try_recv() {
-            Ok(sol) => {
-                if let Some(s) = sol {
-                    let mut e = engine.borrow_mut();
-                    // Only adopt if the user hasn't moved yet.
-                    if e.solution.is_none() && e.state.waste.is_empty() && e.state.score == 0 {
-                        e.solution = Some(s);
+    glib::timeout_add_local(std::time::Duration::from_millis(80), move || {
+        let board_changed = {
+            let e = engine.borrow();
+            openpatience::core::solver::state_signature(&e.state) != state_key
+                || openpatience::core::solver::rules_signature(&e.rules) != rules_key
+        };
+        if board_changed {
+            cancelled.store(true, std::sync::atomic::Ordering::Relaxed);
+            solving.set(false);
+            return glib::ControlFlow::Break;
+        }
+
+        match rx.try_recv() {
+            Ok(solution) => {
+                solving.set(false);
+                let mut e = engine.borrow_mut();
+                let still_same = openpatience::core::solver::state_signature(&e.state) == state_key
+                    && openpatience::core::solver::rules_signature(&e.rules) == rules_key;
+                if still_same {
+                    if let Some(solution) = solution {
+                        e.solution = Some(solution);
+                    }
+                    if let Some(movement) = e.hint() {
+                        if e.apply(movement) {
+                            move_count.set(move_count.get() + 1);
+                        }
                     }
                 }
+                drop(e);
+                area.queue_draw();
                 glib::ControlFlow::Break
             }
             Err(mpsc::TryRecvError::Empty) => glib::ControlFlow::Continue,
-            Err(mpsc::TryRecvError::Disconnected) => glib::ControlFlow::Break,
+            Err(mpsc::TryRecvError::Disconnected) => {
+                solving.set(false);
+                glib::ControlFlow::Break
+            }
         }
     });
 }
@@ -111,6 +175,7 @@ fn check_win(
         // Refresh the drawing area at approximately 60 FPS.
         let animation = victory_animation.clone();
         let area = area.clone();
+        let window = window.clone();
         glib::timeout_add_local(std::time::Duration::from_millis(16), move || {
             let finished = animation
                 .borrow()
@@ -121,14 +186,13 @@ fn check_win(
             if finished {
                 animation.borrow_mut().take();
                 area.queue_draw();
+                show_win_dialog(&window, score, move_count, secs);
                 glib::ControlFlow::Break
             } else {
                 area.queue_draw();
                 glib::ControlFlow::Continue
             }
         });
-
-        show_win_dialog(window, score, move_count, secs);
     }
 }
 
@@ -151,6 +215,7 @@ fn build_ui(app: &gtk::Application) {
     let drag: Rc<std::cell::RefCell<Option<DragState>>> = Rc::new(std::cell::RefCell::new(None));
     let dims = Rc::new(Cell::new((1000.0f64, 800.0f64)));
     let last_action: Rc<Cell<std::time::Instant>> = Rc::new(Cell::new(std::time::Instant::now()));
+    let solving = Rc::new(Cell::new(false));
 
     // Score / move tracking
     let move_count: Rc<Cell<u32>> = Rc::new(Cell::new(0));
@@ -457,35 +522,27 @@ fn build_ui(app: &gtk::Application) {
         let engine = engine.clone();
         let area = area.clone();
         let move_count = move_count.clone();
+        let solving = solving.clone();
         move |_ctrl, keyval, _keycode, _state| {
             let name = keyval.name().map(|s| s.to_string()).unwrap_or_default();
+            if name == "h" || name == "H" {
+                request_hint(
+                    engine.clone(),
+                    area.clone(),
+                    move_count.clone(),
+                    solving.clone(),
+                );
+                return glib::Propagation::Stop;
+            }
+
             let mut e = engine.borrow_mut();
             let handled = match name.as_str() {
-                "u" | "U" => {
-                    e.undo();
-                    true
-                }
-                "h" | "H" => {
-                    e.ensure_solution(50_000);
-                    if let Some(m) = e.hint() {
-                        if e.apply(m) {
-                            drop(e);
-                            move_count.set(move_count.get() + 1);
-                            if handled_guard(&area) {}
-                            area.queue_draw();
-                            return glib::Propagation::Stop;
-                        }
-                    }
-                    true
-                }
+                "u" | "U" => e.undo(),
                 "f" | "F" => {
                     e.auto_foundation_all();
                     true
                 }
-                "d" | "D" => {
-                    e.apply(Move::Draw);
-                    true
-                }
+                "d" | "D" => e.apply(Move::Draw),
                 _ => false,
             };
             drop(e);
@@ -533,26 +590,15 @@ fn build_ui(app: &gtk::Application) {
     hint_btn.connect_clicked({
         let engine = engine.clone();
         let area = area.clone();
-        let last_action = last_action.clone();
         let move_count = move_count.clone();
+        let solving = solving.clone();
         move |_| {
-            let now = std::time::Instant::now();
-            if now.duration_since(last_action.get()).as_millis() < 50 {
-                return;
-            }
-            last_action.set(now);
-            let mut e = engine.borrow_mut();
-            e.ensure_solution(50_000);
-            if let Some(m) = e.hint() {
-                if e.apply(m) {
-                    drop(e);
-                    move_count.set(move_count.get() + 1);
-                    area.queue_draw();
-                    return;
-                }
-            }
-            drop(e);
-            area.queue_draw();
+            request_hint(
+                engine.clone(),
+                area.clone(),
+                move_count.clone(),
+                solving.clone(),
+            );
         }
     });
     header.pack_start(&hint_btn);
@@ -754,7 +800,6 @@ fn build_ui(app: &gtk::Application) {
             victory_shown.set(false);
             victory_animation.borrow_mut().take();
             area.queue_draw();
-            spawn_background_solve(engine.clone());
         }
     });
     header.pack_start(&new_btn);
@@ -781,7 +826,6 @@ fn build_ui(app: &gtk::Application) {
             victory_shown.set(false);
             victory_animation.borrow_mut().take();
             area.queue_draw();
-            spawn_background_solve(engine.clone());
         }
     });
     header.pack_start(&mode_drop);
@@ -843,7 +887,6 @@ fn build_ui(app: &gtk::Application) {
                 victory.set(false);
                 animation.borrow_mut().take();
                 area2.queue_draw();
-                spawn_background_solve(eng.clone());
             });
         });
     }
@@ -1034,9 +1077,10 @@ fn show_about_dialog(parent: &gtk::ApplicationWindow) {
         ✓ No accounts — No login, registration, or cloud sync.\n\
         ✓ No ads — This is free software with no advertising.\n\
         ✓ No third-party SDKs — No external libraries phone home.\n\n\
-        Your game data (seed, score) is computed entirely in RAM \
-        and discarded when you close the app. Nothing is written \
-        to disk, the network, or any external service.\n\n\
+        Game progress remains in RAM. When a winning solution is found, \
+        the move sequence may be cached locally under your user data \
+        directory so it can be reused for the same deal. No game data \
+        is sent over the network.\n\n\
         This policy is effective as of 2026 and applies to all \
         versions of Open Solitaire distributed under the GPL-3.0 license.",
     ));
@@ -1227,9 +1271,4 @@ fn handle_select(
             }
         }
     }
-}
-
-// Dummy helper to satisfy borrow checker in hint handler (unused body)
-fn handled_guard(_area: &gtk::DrawingArea) -> bool {
-    false
 }
