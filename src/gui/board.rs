@@ -104,8 +104,44 @@ pub const BOARD_MARGIN: f64 = 24.0;
 pub const GAP: f64 = 16.0;
 pub const TAB_GAP_DOWN: f64 = 22.0;
 pub const TAB_GAP_UP: f64 = 32.0;
-pub const BASE_H: f64 =
-    BOARD_MARGIN + CARD_H + TAB_GAP_UP + CARD_H + 12.0 * TAB_GAP_UP + BOARD_MARGIN;
+const MIN_TAB_GAP_DOWN: f64 = 8.0;
+const MIN_TAB_GAP_UP: f64 = 12.0;
+const COMPACT_AFTER_CARDS: usize = 13;
+
+/// Return the tableau spacing used by both rendering and pointer hit-testing.
+/// Normal-sized piles retain the original spacing; taller piles progressively
+/// compact until the exposed edge of every card remains visible.
+pub fn tableau_gaps(state: &GameState) -> (f64, f64) {
+    let max_len = state.tableau.iter().map(Vec::len).max().unwrap_or(0);
+    if max_len <= COMPACT_AFTER_CARDS {
+        return (TAB_GAP_UP, TAB_GAP_DOWN);
+    }
+
+    let factor = COMPACT_AFTER_CARDS as f64 / (max_len - 1) as f64;
+    (
+        (TAB_GAP_UP * factor).max(MIN_TAB_GAP_UP),
+        (TAB_GAP_DOWN * factor).max(MIN_TAB_GAP_DOWN),
+    )
+}
+
+/// Height of the board based on the tallest current tableau pile.
+pub fn base_h(engine: &Engine) -> f64 {
+    let (gap_up, gap_down) = tableau_gaps(&engine.state);
+    let tableau_y = BOARD_MARGIN + CARD_H + TAB_GAP_UP;
+    let max_stack_offset = engine
+        .state
+        .tableau
+        .iter()
+        .map(|pile| {
+            pile.iter()
+                .take(pile.len().saturating_sub(1))
+                .map(|card| if card.face_up { gap_up } else { gap_down })
+                .sum::<f64>()
+        })
+        .fold(0.0, f64::max);
+
+    tableau_y + CARD_H + max_stack_offset + BOARD_MARGIN
+}
 
 pub fn base_w(engine: &Engine) -> f64 {
     let piles = engine.state.tableau.len() as f64;
@@ -114,9 +150,10 @@ pub fn base_w(engine: &Engine) -> f64 {
 
 pub fn compute_layout(engine: &Engine, w: f64, h: f64) -> (f64, f64, f64) {
     let bw = base_w(engine);
-    let scale = (w / bw).min(h / BASE_H).clamp(0.35, 2.5);
+    let bh = base_h(engine);
+    let scale = (w / bw).min(h / bh).clamp(0.35, 2.5);
     let off_x = (w - bw * scale) / 2.0;
-    let off_y = (h - BASE_H * scale) / 2.0;
+    let off_y = (h - bh * scale) / 2.0;
     (scale, off_x, off_y)
 }
 
@@ -171,6 +208,7 @@ pub fn draw_board(
     let ss = |s: f64| s * scale;
     let card_w = ss(CARD_W);
     let card_h = ss(CARD_H);
+    let (tab_gap_up, tab_gap_down) = tableau_gaps(&engine.state);
 
     let n_free_cells = engine.state.free_cells.len();
     let n_tableau = engine.state.tableau.len();
@@ -299,9 +337,9 @@ pub fn draw_board(
             }
             if i + 1 < pile.len() {
                 y += ss(if placed.face_up {
-                    TAB_GAP_UP
+                    tab_gap_up
                 } else {
-                    TAB_GAP_DOWN
+                    tab_gap_down
                 });
             }
         }
@@ -318,7 +356,7 @@ pub fn draw_board(
                     if i >= d.from_idx as usize {
                         break;
                     }
-                    y += ss(if p.face_up { TAB_GAP_UP } else { TAB_GAP_DOWN });
+                    y += ss(if p.face_up { tab_gap_up } else { tab_gap_down });
                 }
                 (tx, y)
             }
@@ -334,7 +372,7 @@ pub fn draw_board(
         let mut cy = orig_y + dy;
         for c in &d.cards {
             draw_card_face(cr, orig_x + dx, cy, card_w, card_h, *c, &theme);
-            cy += ss(TAB_GAP_UP);
+            cy += ss(tab_gap_up);
         }
     }
 }
@@ -351,6 +389,7 @@ pub fn hit_test(
     let bx = (mx - off_x) / scale;
     let by = (my - off_y) / scale;
     let n_free_cells = state.free_cells.len();
+    let (tab_gap_up, tab_gap_down) = tableau_gaps(state);
 
     if n_free_cells == 0 {
         if bx >= BOARD_MARGIN
@@ -411,9 +450,9 @@ pub fn hit_test(
             }
             if i + 1 < pile.len() {
                 y += if placed.face_up {
-                    TAB_GAP_UP
+                    tab_gap_up
                 } else {
-                    TAB_GAP_DOWN
+                    tab_gap_down
                 };
             }
         }
