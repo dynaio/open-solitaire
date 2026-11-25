@@ -500,10 +500,3 @@ pub fn draw_selected_highlight(cr: &cairo::Context, x: f64, y: f64, w: f64, h: f
     theme.highlight.set_source(cr);
     cr.stroke().ok();
 }
-
-pub fn draw_hover_highlight(cr: &cairo::Context, x: f64, y: f64, w: f64, h: f64, theme: &Theme) {
-    rounded_rect(cr, x - 1.0, y - 1.0, w + 2.0, h + 2.0, CARD_RADIUS + 1.0);
-    cr.set_line_width(2.0);
-    theme.gold.set_source_alpha(cr, 0.55);
-    cr.stroke().ok();
-}

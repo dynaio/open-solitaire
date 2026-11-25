@@ -1,12 +1,10 @@
 use gtk4::cairo;
 use openpatience::core::card::Card;
 use openpatience::core::engine::Engine;
-use openpatience::core::state::{GameState, PileRef};
+use openpatience::core::state::{GameState, PileRef, PlacedCard};
 use std::time::Instant;
 
-use super::render::card::{
-    draw_hover_highlight, draw_selected_highlight, draw_suit_shape, CARD_H, CARD_W,
-};
+use super::render::card::{draw_selected_highlight, draw_suit_shape, CARD_H, CARD_W};
 use super::render::{draw_card_back, draw_card_face, draw_empty_slot, Theme};
 use openpatience::core::card::Suit;
 
@@ -104,43 +102,48 @@ pub const BOARD_MARGIN: f64 = 24.0;
 pub const GAP: f64 = 16.0;
 pub const TAB_GAP_DOWN: f64 = 22.0;
 pub const TAB_GAP_UP: f64 = 32.0;
-const MIN_TAB_GAP_DOWN: f64 = 8.0;
-const MIN_TAB_GAP_UP: f64 = 12.0;
-const COMPACT_AFTER_CARDS: usize = 13;
+/// Fixed board height: tableau piles are compacted within this area instead
+/// of changing the board scale or shifting the rest of the layout.
+pub const BASE_H: f64 =
+    BOARD_MARGIN + CARD_H + TAB_GAP_UP + CARD_H + 12.0 * TAB_GAP_UP + BOARD_MARGIN;
 
-/// Return the tableau spacing used by both rendering and pointer hit-testing.
-/// Normal-sized piles retain the original spacing; taller piles progressively
-/// compact until the exposed edge of every card remains visible.
-pub fn tableau_gaps(state: &GameState) -> (f64, f64) {
-    let max_len = state.tableau.iter().map(Vec::len).max().unwrap_or(0);
-    if max_len <= COMPACT_AFTER_CARDS {
-        return (TAB_GAP_UP, TAB_GAP_DOWN);
+/// Vertical gap after a card in one tableau pile. Only this pile is considered,
+/// so a tall column never changes the spacing or layout of another column.
+fn tableau_gap_after(pile: &[PlacedCard], card_index: usize) -> f64 {
+    let card = &pile[card_index];
+    let normal_gap = if card.face_up {
+        TAB_GAP_UP
+    } else {
+        TAB_GAP_DOWN
+    };
+
+    let normal_total: f64 = pile
+        .iter()
+        .take(pile.len().saturating_sub(1))
+        .map(|placed| {
+            if placed.face_up {
+                TAB_GAP_UP
+            } else {
+                TAB_GAP_DOWN
+            }
+        })
+        .sum();
+
+    let available = 12.0 * TAB_GAP_UP;
+    if normal_total > available {
+        normal_gap * (available / normal_total)
+    } else {
+        normal_gap
     }
-
-    let factor = COMPACT_AFTER_CARDS as f64 / (max_len - 1) as f64;
-    (
-        (TAB_GAP_UP * factor).max(MIN_TAB_GAP_UP),
-        (TAB_GAP_DOWN * factor).max(MIN_TAB_GAP_DOWN),
-    )
 }
 
-/// Height of the board based on the tallest current tableau pile.
-pub fn base_h(engine: &Engine) -> f64 {
-    let (gap_up, gap_down) = tableau_gaps(&engine.state);
-    let tableau_y = BOARD_MARGIN + CARD_H + TAB_GAP_UP;
-    let max_stack_offset = engine
-        .state
-        .tableau
-        .iter()
-        .map(|pile| {
-            pile.iter()
-                .take(pile.len().saturating_sub(1))
-                .map(|card| if card.face_up { gap_up } else { gap_down })
-                .sum::<f64>()
-        })
-        .fold(0.0, f64::max);
-
-    tableau_y + CARD_H + max_stack_offset + BOARD_MARGIN
+/// Card top coordinate in board-space units.
+fn tableau_card_y(pile: &[PlacedCard], card_index: usize) -> f64 {
+    let mut y = BOARD_MARGIN + CARD_H + TAB_GAP_UP;
+    for index in 0..card_index.min(pile.len()) {
+        y += tableau_gap_after(pile, index);
+    }
+    y
 }
 
 pub fn base_w(engine: &Engine) -> f64 {
@@ -150,7 +153,7 @@ pub fn base_w(engine: &Engine) -> f64 {
 
 pub fn compute_layout(engine: &Engine, w: f64, h: f64) -> (f64, f64, f64) {
     let bw = base_w(engine);
-    let bh = base_h(engine);
+    let bh = BASE_H;
     let scale = (w / bw).min(h / bh).clamp(0.35, 2.5);
     let off_x = (w - bw * scale) / 2.0;
     let off_y = (h - bh * scale) / 2.0;
@@ -163,7 +166,7 @@ pub fn draw_board(
     h: f64,
     engine: &Engine,
     selection: &Option<Selection>,
-    hover: &Option<(PileRef, u8)>,
+    _hover: &Option<(PileRef, u8)>,
     drag: &Option<DragState>,
 ) {
     let theme = Theme::deep_emerald();
@@ -208,7 +211,6 @@ pub fn draw_board(
     let ss = |s: f64| s * scale;
     let card_w = ss(CARD_W);
     let card_h = ss(CARD_H);
-    let (tab_gap_up, tab_gap_down) = tableau_gaps(&engine.state);
 
     let n_free_cells = engine.state.free_cells.len();
     let n_tableau = engine.state.tableau.len();
@@ -308,39 +310,26 @@ pub fn draw_board(
             draw_empty_slot(cr, tx, tableau_y, card_w, card_h, &theme);
             continue;
         }
-        let mut y = tableau_y;
+
         for (i, placed) in pile.iter().enumerate() {
             let is_dragged = drag
                 .as_ref()
                 .map(|d| d.pile == PileRef::Tableau(t as u8) && i >= d.from_idx as usize)
                 .unwrap_or(false);
-            if !is_dragged {
-                if placed.face_up {
-                    draw_card_face(cr, tx, y, card_w, card_h, placed.card, &theme);
-                } else {
-                    draw_card_back(cr, tx, y, card_w, card_h, &theme);
-                }
+            if is_dragged {
+                continue;
             }
-            if let Some(hv) = hover {
-                if hv.0 == PileRef::Tableau(t as u8)
-                    && hv.1 == i as u8
-                    && placed.face_up
-                    && !is_dragged
-                {
-                    draw_hover_highlight(cr, tx, y, card_w, card_h, &theme);
-                }
+
+            let y = sy(tableau_card_y(pile, i));
+            if placed.face_up {
+                draw_card_face(cr, tx, y, card_w, card_h, placed.card, &theme);
+            } else {
+                draw_card_back(cr, tx, y, card_w, card_h, &theme);
             }
             if let Some(sel) = selection {
                 if sel.pile == PileRef::Tableau(t as u8) && sel.from_idx == i as u8 {
                     draw_selected_highlight(cr, tx, y, card_w, card_h, &theme);
                 }
-            }
-            if i + 1 < pile.len() {
-                y += ss(if placed.face_up {
-                    tab_gap_up
-                } else {
-                    tab_gap_down
-                });
             }
         }
     }
@@ -351,13 +340,7 @@ pub fn draw_board(
             PileRef::Tableau(t) => {
                 let tx = sx(BOARD_MARGIN + (t as f64) * (CARD_W + GAP));
                 let pile = &engine.state.tableau[t as usize];
-                let mut y = sy(BOARD_MARGIN + CARD_H + TAB_GAP_UP);
-                for (i, p) in pile.iter().enumerate() {
-                    if i >= d.from_idx as usize {
-                        break;
-                    }
-                    y += ss(if p.face_up { tab_gap_up } else { tab_gap_down });
-                }
+                let y = sy(tableau_card_y(pile, d.from_idx as usize));
                 (tx, y)
             }
             PileRef::Waste => (sx(BOARD_MARGIN + CARD_W + GAP), sy(BOARD_MARGIN)),
@@ -372,7 +355,7 @@ pub fn draw_board(
         let mut cy = orig_y + dy;
         for c in &d.cards {
             draw_card_face(cr, orig_x + dx, cy, card_w, card_h, *c, &theme);
-            cy += ss(tab_gap_up);
+            cy += ss(TAB_GAP_UP);
         }
     }
 }
@@ -389,7 +372,6 @@ pub fn hit_test(
     let bx = (mx - off_x) / scale;
     let by = (my - off_y) / scale;
     let n_free_cells = state.free_cells.len();
-    let (tab_gap_up, tab_gap_down) = tableau_gaps(state);
 
     if n_free_cells == 0 {
         if bx >= BOARD_MARGIN
@@ -442,18 +424,12 @@ pub fn hit_test(
             }
             continue;
         }
-        let mut y = tableau_y;
         let mut hit: Option<usize> = None;
-        for (i, placed) in pile.iter().enumerate() {
+        for (i, _placed) in pile.iter().enumerate() {
+            let y = tableau_card_y(pile, i);
             if by >= y && by < y + CARD_H {
+                // Later cards are painted above earlier cards in the normal pile.
                 hit = Some(i);
-            }
-            if i + 1 < pile.len() {
-                y += if placed.face_up {
-                    tab_gap_up
-                } else {
-                    tab_gap_down
-                };
             }
         }
         if let Some(i) = hit {
